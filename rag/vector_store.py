@@ -77,14 +77,14 @@ def load_vector_store():
     
 
 # Testing the vector store creation and loading
-if __name__ == "__main__":
-    sample_docs = [
-        "Haemoglobin normal range is 13 to 17 g/dL",
-        "High glucose may indicate diabetes",
-        "Low platelet count may indicate bleeding disorders",
-        "High choleterol increases heart disease risk"
-    ]
+# if __name__ == "__main__":
+#     sample_docs = [
+#         "Haemoglobin normal range is 13 to 17 g/dL",
+#         "High glucose may indicate diabetes",
+#         "Low platelet count may indicate bleeding disorders",
+#         "High cholesterol increases heart disease risk"
+#     ]
 
-    vs = create_vector_store(sample_docs)
+#     vs = create_vector_store(sample_docs)
 
-    print("Vector store created successfully")
+#     print("Vector store created successfully")

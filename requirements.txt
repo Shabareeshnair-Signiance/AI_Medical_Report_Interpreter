@@ -1,0 +1,12 @@
+flask
+langgraph
+langchain
+langchain-community
+openai
+faiss-cpu
+sentence-transformers
+pdfplumber
+paddleocr
+paddlepaddle
+python-dotenv
+numpy

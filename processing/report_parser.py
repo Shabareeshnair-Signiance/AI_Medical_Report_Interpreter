@@ -3,30 +3,43 @@ from logger_config import logger
 from processing.pdf_reader import read_pdf
 
 
-def parse_medical_report(report_text: str) -> dict:
-    """
-    Parses extracted medical report text and identifies
-    test names with their corresponding values and units.
+# Known medical tests dictionary
+KNOWN_TESTS = [
+    "Hemoglobin",
+    "WBC",
+    "RBC",
+    "Platelet",
+    "Glucose",
+    "Cholesterol",
+    "HDL Cholesterol",
+    "LDL Cholesterol",
+    "Triglycerides",
+    "Creatinine",
+    "Urea",
+    "Sodium",
+    "Potassium",
+    "Calcium",
+    "Vitamin D",
+    "TSH"
+]
 
-    Args:
-        report_text (str): Raw text extracted from PDF.
 
-    Returns:
-        dict: Structured medical data
-    """
+def is_known_test(line):
+    for test in KNOWN_TESTS:
+        if test.lower() in line.lower():
+            return True
+    return False
+
+
+def parse_medical_report(report_text):
 
     try:
-        logger.info("Starting to parse the medical report")
+
+        logger.info("Starting medical report parsing")
 
         medical_data = {}
 
-        # Splitting text into lines
         lines = report_text.split("\n")
-
-        logger.info(f"Total lines found in report: {len(lines)}")
-
-        # Regex pattern for lab results
-        pattern = r"([A-Za-z\s]+)\s+([\d.]+)\s*(mg/dL|g/dL|cells/mcL|/mcL|%)?"
 
         for line in lines:
 
@@ -35,47 +48,71 @@ def parse_medical_report(report_text: str) -> dict:
             if not line:
                 continue
 
-            match = re.search(pattern, line)
+            # Filter only lines containing known test names
+            if not is_known_test(line):
+                continue
 
-            if match:
+            # Detect value + unit
+            value_pattern = r"(\d+\.?\d*)\s*(mg/dL|g/dL|mmol/L|cells/mcL|/mcL|%)?"
 
-                test_name = match.group(1).strip()
-                value = match.group(2)
-                unit = match.group(3) if match.group(3) else ""
+            value_match = re.search(value_pattern, line)
 
-                full_value = f"{value} {unit}".strip()
+            if not value_match:
+                continue
 
-                medical_data[test_name] = full_value
+            value = float(value_match.group(1))
+            unit = value_match.group(2) if value_match.group(2) else ""
 
-                logger.info(f"Extracted: {test_name} -> {full_value}")
+            # Detect reference range
+            range_pattern = r"(\d+\.?\d*)\s*-\s*(\d+\.?\d*)"
+
+            range_match = re.search(range_pattern, line)
+
+            reference_range = None
+            status = "Unknown"
+
+            if range_match:
+
+                low = float(range_match.group(1))
+                high = float(range_match.group(2))
+
+                reference_range = f"{low}-{high}"
+
+                if value < low:
+                    status = "Low"
+                elif value > high:
+                    status = "High"
+                else:
+                    status = "Normal"
+
+            # Detect test name
+            for test in KNOWN_TESTS:
+
+                if test.lower() in line.lower():
+
+                    medical_data[test] = {
+                        "value": value,
+                        "unit": unit,
+                        "reference_range": reference_range,
+                        "status": status
+                    }
+
+                    logger.info(f"Extracted {test}: {value} {unit} ({status})")
 
         logger.info("Medical report parsing completed")
 
         return medical_data
 
     except Exception as e:
-        logger.error(f"Error parsing medical report: {str(e)}")
+        logger.error(f"Parsing error: {str(e)}")
+
         return {}
 
-# Test block (Runs parser using the real PDF)
 
 if __name__ == "__main__":
 
     pdf_path = "data/uploads/Sample Report.pdf"
-
-    logger.info("Reading medical report PDF")
-
-    report_text = read_pdf(pdf_path)
-
-    if report_text:
-
-        print("\n===== EXTRACTED TEXT =====\n")
-        print(report_text)
-
-        parsed_data = parse_medical_report(report_text)
-
-        print("\n===== PARSED MEDICAL DATA =====\n")
-        print(parsed_data)
-
-    else:
-        print("Failed to extract text from PDF.")
+    text = read_pdf(pdf_path)
+    parsed = parse_medical_report(text)
+    print("\nParsed Medical Data:\n")
+    print(parsed)

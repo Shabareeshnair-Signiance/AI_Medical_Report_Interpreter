@@ -43,8 +43,8 @@ def read_pdf(file_path: str) -> str:
         return ""
     
 # This line of code is to test the PDF reading functionality when this script is run directly.
-if __name__ == "__main__":
-    sample_path = "data/uploads/Sample Report.pdf"
-    text = read_pdf(sample_path)
+#if __name__ == "__main__":
+#    sample_path = "data/uploads/Sample Report.pdf"
+#    text = read_pdf(sample_path)
     # Print the first 500 characters of the extracted text for verification 
-    print(text[:500]) 
+#    print(text[:500]) 

@@ -23,7 +23,7 @@ def create_vector_store(documents):
 
         # Loading sentence transformer embedding model
         embeddings = HuggingFaceEmbeddings(
-            model_name = "sentence-transformers/all-MiniLM-L6-V2"
+            model_name = "sentence-transformers/all-MiniLM-L6-v2"
         )
 
         logger.info("Creating FAISS vector store")

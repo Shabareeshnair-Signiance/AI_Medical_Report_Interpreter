@@ -3,30 +3,49 @@ from logger_config import logger
 from processing.pdf_reader import read_pdf
 
 
-# Known medical tests dictionary
-KNOWN_TESTS = [
-    "Hemoglobin",
-    "WBC",
-    "RBC",
-    "Platelet",
-    "Glucose",
-    "Cholesterol",
-    "HDL Cholesterol",
-    "LDL Cholesterol",
-    "Triglycerides",
-    "Creatinine",
-    "Urea",
-    "Sodium",
-    "Potassium",
-    "Calcium",
-    "Vitamin D",
-    "TSH"
+# common medical units
+UNITS = [
+    "mg/dL","g/dL","mmol/L","IU/L","U/L",
+    "cells/mcL","/mcL","/µL","%","ng/mL",
+    "pg/mL","mEq/L","µg/dL"
 ]
 
 
-def is_known_test(line):
-    for test in KNOWN_TESTS:
-        if test.lower() in line.lower():
+# words indicating interpretation text
+IGNORE_WORDS = [
+    "less than",
+    "greater than",
+    "risk",
+    "information",
+    "performed",
+    "page",
+    "accession",
+    "doctor",
+    "patient",
+    "report"
+]
+
+
+def clean_line(line):
+
+    line = re.sub(r"\.{2,}", " ", line)
+    line = re.sub(r"\s+", " ", line)
+
+    return line.strip()
+
+
+def contains_unit(line):
+
+    for unit in UNITS:
+        if unit in line:
+            return unit
+    return None
+
+
+def is_interpretation(line):
+
+    for word in IGNORE_WORDS:
+        if word in line.lower():
             return True
     return False
 
@@ -43,30 +62,29 @@ def parse_medical_report(report_text):
 
         for line in lines:
 
-            line = line.strip()
+            line = clean_line(line)
 
             if not line:
                 continue
 
-            # Filter only lines containing known test names
-            if not is_known_test(line):
+            if is_interpretation(line):
                 continue
 
-            # Detect value + unit
-            value_pattern = r"(\d+\.?\d*)\s*(mg/dL|g/dL|mmol/L|cells/mcL|/mcL|%)?"
+            unit = contains_unit(line)
 
-            value_match = re.search(value_pattern, line)
+            if not unit:
+                continue
+
+            # detect numeric value
+            value_match = re.search(r"\b\d+\.?\d*\b", line)
 
             if not value_match:
                 continue
 
-            value = float(value_match.group(1))
-            unit = value_match.group(2) if value_match.group(2) else ""
+            value = float(value_match.group())
 
-            # Detect reference range
-            range_pattern = r"(\d+\.?\d*)\s*-\s*(\d+\.?\d*)"
-
-            range_match = re.search(range_pattern, line)
+            # extract reference range
+            range_match = re.search(r"(\d+\.?\d*)\s*-\s*(\d+\.?\d*)", line)
 
             reference_range = None
             status = "Unknown"
@@ -85,32 +103,36 @@ def parse_medical_report(report_text):
                 else:
                     status = "Normal"
 
-            # Detect test name
-            for test in KNOWN_TESTS:
+            # detect test name
+            test_name = line.split(value_match.group())[0].strip()
 
-                if test.lower() in line.lower():
+            if len(test_name) < 3:
+                continue
 
-                    medical_data[test] = {
-                        "value": value,
-                        "unit": unit,
-                        "reference_range": reference_range,
-                        "status": status
-                    }
+            if not any(char.isalpha() for char in test_name):
+                continue
 
-                    logger.info(f"Extracted {test}: {value} {unit} ({status})")
+            medical_data[test_name] = {
+                "value": value,
+                "unit": unit,
+                "reference_range": reference_range,
+                "status": status
+            }
+
+            logger.info(f"Extracted {test_name}: {value} {unit} ({status})")
 
         logger.info("Medical report parsing completed")
 
         return medical_data
 
     except Exception as e:
+
         logger.error(f"Parsing error: {str(e)}")
 
         return {}
 
 
 if __name__ == "__main__":
-
     pdf_path = "data/uploads/Sample Report.pdf"
     text = read_pdf(pdf_path)
     parsed = parse_medical_report(text)

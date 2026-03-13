@@ -77,7 +77,7 @@ Only produce the single result statement.
 
 if __name__ == "__main__":
 
-    report_path = "data/uploads/Sample Report.pdf"
+    report_path = "data/uploads/Glucose_report.pdf"
 
     print("\nReading Medical Report...\n")
 

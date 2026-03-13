@@ -16,6 +16,11 @@ def setup_logger():
     if logger.hasHandlers():
         return logger
 
+    # Add space before each new run
+    if os.path.exists(LOG_FILE):
+        with open(LOG_FILE, "a") as f:
+            f.write("\n\n")  # two blank lines between runs
+
     # Log format
     formatter = logging.Formatter(
         "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
@@ -36,6 +41,8 @@ def setup_logger():
 
 
 logger = setup_logger()
+
+
 if __name__ == "__main__":
     logger.info("Logger is working correctly.")
     logger.warning("This is a warning message.")

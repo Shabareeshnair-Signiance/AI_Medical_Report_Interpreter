@@ -1,7 +1,16 @@
 import re
 from logger_config import logger
 from processing.pdf_reader import read_pdf
+from transformers import pipeline
 
+# Loading medical NER Model
+logger.info("Loading biomedical NER model")
+
+ner_pipeline = pipeline(
+    "ner",
+    model = "d4data/biomedical-ner-all",
+    aggregation_strategy = "simple"
+)
 
 # common medical units
 UNITS = [
@@ -22,7 +31,13 @@ IGNORE_WORDS = [
     "accession",
     "doctor",
     "patient",
-    "report"
+    "report",
+    "address",
+    "hospital",
+    "printed",
+    "date",
+    "collection",
+    "visit"
 ]
 
 
@@ -34,14 +49,16 @@ def clean_line(line):
     return line.strip()
 
 
+# Checking if the line contains unit or not
 def contains_unit(line):
 
     for unit in UNITS:
-        if unit in line:
+        if unit.lower() in line.lower():
             return unit
     return None
 
 
+# Detecting the interpretation lines carefully
 def is_interpretation(line):
 
     for word in IGNORE_WORDS:
@@ -50,13 +67,29 @@ def is_interpretation(line):
     return False
 
 
+# Extracting the NER
+def extract_entities(text):
+    entities = ner_pipeline(text)
+    ner_results = []
+
+    for ent in entities:
+        ner_results.append({
+            "text": ent["word"],
+            "type": ent["entity_group"],
+            "score": ent["score"]
+        })
+
+    return ner_results
+
+
+# Parsing the main core
 def parse_medical_report(report_text):
 
     try:
 
         logger.info("Starting medical report parsing")
 
-        medical_data = {}
+        medical_data = []
 
         lines = report_text.split("\n")
 
@@ -112,18 +145,27 @@ def parse_medical_report(report_text):
             if not any(char.isalpha() for char in test_name):
                 continue
 
-            medical_data[test_name] = {
+            medical_data.append({
+                "test": test_name,
                 "value": value,
                 "unit": unit,
                 "reference_range": reference_range,
                 "status": status
-            }
+            })
 
             logger.info(f"Extracted {test_name}: {value} {unit} ({status})")
 
+        # Running the NER on report text
+        ner_entities = extract_entities(report_text)
+
+        logger.info(f"NER detected {len(ner_entities)} entities")
+
         logger.info("Medical report parsing completed")
 
-        return medical_data
+        return {
+            "lab_results": medical_data,
+            "entities": ner_entities
+        }
 
     except Exception as e:
 
@@ -132,9 +174,34 @@ def parse_medical_report(report_text):
         return {}
 
 
-# if __name__ == "__main__":
-#     pdf_path = "data/uploads/Sample Report.pdf"
-#     text = read_pdf(pdf_path)
-#     parsed = parse_medical_report(text)
-#     print("\nParsed Medical Data:\n")
-#     print(parsed)
+# Testing the parser
+if __name__ == "__main__":
+    report_path = "data/uploads/Sample Report.pdf"
+
+    print("\n============================")
+
+    report_text = read_pdf(report_path)
+
+    if not report_text:
+        print("Failed to read report")
+        exit()
+
+    print("Report loaded Successfully\n")
+    parsed_data = parse_medical_report(report_text)
+
+    print("\n================================")
+    print("Extracted Lab Results:\n")
+
+    for item in parsed_data["lab_results"]:
+
+        print(
+            f"{item['test']} → {item['value']} {item['unit']} | "
+            f"Range: {item['reference_range']} | Status: {item['status']}"
+        )
+
+    print("\n================================")
+    print("NER Detected Entities:\n")
+
+    for ent in parsed_data["entities"][:20]:
+
+        print(ent)

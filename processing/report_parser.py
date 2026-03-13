@@ -132,9 +132,9 @@ def parse_medical_report(report_text):
         return {}
 
 
-if __name__ == "__main__":
-    pdf_path = "data/uploads/Sample Report.pdf"
-    text = read_pdf(pdf_path)
-    parsed = parse_medical_report(text)
-    print("\nParsed Medical Data:\n")
-    print(parsed)
+# if __name__ == "__main__":
+#     pdf_path = "data/uploads/Sample Report.pdf"
+#     text = read_pdf(pdf_path)
+#     parsed = parse_medical_report(text)
+#     print("\nParsed Medical Data:\n")
+#     print(parsed)

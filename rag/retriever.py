@@ -58,7 +58,7 @@ def search_medical_knowledge(query: str):
             return []
         
         logger.info(f"Searching vector store for: {query}")
-        results = retriever.get_relevant_documents(query)
+        results = retriever.invoke(query)
 
         knowledge = [doc.page_content for doc in results]
         logger.info(f"{len(knowledge)} knowledge results retrieved")

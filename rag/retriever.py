@@ -28,6 +28,7 @@ def get_retriever():
 
         # converting vector store into retriever
         retriever = vector_store.as_retriever(
+            search_type = "similarity",
             search_kwargs = {"k": 3} # it will return top 3 similar results
         )
 

@@ -1,5 +1,6 @@
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
+from processing.pdf_reader import read_pdf
 from logger_config import logger
 
 
@@ -75,18 +76,31 @@ def search_medical_knowledge(query: str):
 if __name__ == "__main__":
 
     # Simulating values extracted from medical report
-    sample_queries = [
-        "Glucose 150 mg/dL",
-        "Hemoglobin 11 g/dL",
-        "Platelet count 100000"
-    ]
+    # sample_queries = [
+    #     "Glucose 150 mg/dL",
+    #     "Hemoglobin 11 g/dL",
+    #     "Platelet count 100000"
+    # ]
 
-    for query in sample_queries:
+    # Testing with Sample Medical Report
+    report_path = "data/uploads/Sample Report.pdf"
 
-        print("\n==================================")
-        print(f"Query: {query}")
+    print("\n=================================")
+    print("Reading Medical Report...")
 
-        results = search_medical_knowledge(query)
+    report_text = read_pdf(report_path)
 
-        for r in results:
-            print(".", r)
+    if not report_text:
+        print("Failed to read report")
+        exit()
+
+    print("Report Successfully read\n")
+
+    # It can search the full report text
+    print("Searching medical knowledge for report content...\n")
+    results = search_medical_knowledge(report_text)
+
+    print("\nRetrieved Knowledge:\n")
+
+    for r in results:
+        print(".", r)

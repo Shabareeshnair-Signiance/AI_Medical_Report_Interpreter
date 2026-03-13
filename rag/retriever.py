@@ -1,5 +1,4 @@
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
+from rag.vector_store import load_vector_store
 
 from processing.pdf_reader import read_pdf
 from processing.report_parser import parse_medical_report
@@ -7,30 +6,20 @@ from processing.report_parser import parse_medical_report
 from logger_config import logger
 
 
-# path where FAISS vector store is saved
-VECTOR_DB_PATH = "data/vector_store"
-
-
 def get_retriever():
     """
-    Load FAISS vector database and convert it to retriever.
+    Load vector store and convert it to retriever.
     """
 
     try:
 
-        logger.info("Loading embedding model")
+        logger.info("Loading vector store")
 
-        embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-l6-v2"
-        )
+        vector_store = load_vector_store()
 
-        logger.info("Loading FAISS vector database")
-
-        vector_store = FAISS.load_local(
-            VECTOR_DB_PATH,
-            embeddings,
-            allow_dangerous_deserialization=True
-        )
+        if vector_store is None:
+            logger.error("Vector store not found or empty")
+            return None
 
         # create retriever
         retriever = vector_store.as_retriever(
@@ -48,9 +37,10 @@ def get_retriever():
         return None
 
 
-def search_medical_knowledge(query: str):
+def search_medical_knowledge(query: str, test_name: str):
     """
-    Search vector store using a query.
+    Search medical knowledge using retriever.
+    Filter results so only relevant lab test knowledge is returned.
     """
 
     try:
@@ -62,13 +52,24 @@ def search_medical_knowledge(query: str):
 
         logger.info(f"Searching vector store for: {query}")
 
+        # retrieve top results
         results = retriever.invoke(query)
 
-        knowledge = [doc.page_content for doc in results]
+        # filter results that contain the same test name
+        filtered_results = []
 
-        logger.info(f"{len(knowledge)} knowledge results retrieved")
+        for doc in results:
 
-        return knowledge
+            if test_name.lower() in doc.page_content.lower():
+                filtered_results.append(doc.page_content)
+
+        # if filtering removes everything, fall back to original results
+        if not filtered_results:
+            filtered_results = [doc.page_content for doc in results]
+
+        logger.info(f"{len(filtered_results)} knowledge results retrieved")
+
+        return filtered_results
 
     except Exception as e:
 
@@ -77,56 +78,56 @@ def search_medical_knowledge(query: str):
 
 
 
-# Testing retriever using medical report
+# Testing retriever using sample medical report
+# if __name__ == "__main__":
 
-if __name__ == "__main__":
+#     report_path = "data/uploads/Sample Report.pdf"
 
-    report_path = "data/uploads/Sample Report.pdf"
+#     print("\n=================================")
+#     print("Reading Medical Report...")
 
-    print("\n=================================")
-    print("Reading Medical Report...")
+#     report_text = read_pdf(report_path)
 
-    report_text = read_pdf(report_path)
+#     if not report_text:
+#         print("Failed to read report")
+#         exit()
 
-    if not report_text:
-        print("Failed to read report")
-        exit()
+#     print("Report Successfully Read\n")
 
-    print("Report Successfully Read\n")
+#     # parse report to extract lab values
+#     print("Parsing medical report...\n")
 
-    # parse the report to extract lab values
-    print("Parsing medical report...\n")
+#     parsed_data = parse_medical_report(report_text)
 
-    parsed_data = parse_medical_report(report_text)
+#     if not parsed_data:
+#         print("No medical values found")
+#         exit()
 
-    if not parsed_data:
-        print("No medical values found")
-        exit()
+#     # extracted lab results
+#     lab_results = parsed_data.get("lab_results", [])
 
-    # lab results extracted by parser
-    lab_results = parsed_data.get("lab_results", [])
+#     print("Extracted Lab Results:\n")
 
-    print("Extracted Lab Results:\n")
+#     for item in lab_results:
 
-    for item in lab_results:
+#         test_name = item["test"]
+#         value = item["value"]
+#         unit = item["unit"]
+#         status = item["status"]
 
-        test_name = item["test"]
-        value = item["value"]
-        unit = item["unit"]
-        status = item["status"]
+#         # create search query
+#         query = f"{test_name} {value} {unit}"
 
-        # create query for retriever
-        query = f"{test_name} {value} {unit}"
+#         print("---------------------------------")
+#         print(f"Query: {query}")
+#         print(f"Status: {status}\n")
 
-        print("---------------------------------")
-        print(f"Query: {query}")
-        print(f"Status: {status}\n")
+#         # search knowledge
+#         results = search_medical_knowledge(query, test_name)
 
-        results = search_medical_knowledge(query)
+#         print("Retrieved Knowledge:\n")
 
-        print("Retrieved Knowledge:\n")
+#         for r in results:
+#             print("•", r)
 
-        for r in results:
-            print("•", r)
-
-        print()
+#         print()

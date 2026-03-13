@@ -1,7 +1,7 @@
 from rag.vector_store import load_vector_store
 
-from processing.pdf_reader import read_pdf
-from processing.report_parser import parse_medical_report
+#from processing.pdf_reader import read_pdf
+#from processing.report_parser import parse_medical_report
 
 from logger_config import logger
 

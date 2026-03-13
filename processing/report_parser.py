@@ -175,33 +175,33 @@ def parse_medical_report(report_text):
 
 
 # Testing the parser
-if __name__ == "__main__":
-    report_path = "data/uploads/Sample Report.pdf"
+# if __name__ == "__main__":
+#     report_path = "data/uploads/Sample Report.pdf"
 
-    print("\n============================")
+#     print("\n============================")
 
-    report_text = read_pdf(report_path)
+#     report_text = read_pdf(report_path)
 
-    if not report_text:
-        print("Failed to read report")
-        exit()
+#     if not report_text:
+#         print("Failed to read report")
+#         exit()
 
-    print("Report loaded Successfully\n")
-    parsed_data = parse_medical_report(report_text)
+#     print("Report loaded Successfully\n")
+#     parsed_data = parse_medical_report(report_text)
 
-    print("\n================================")
-    print("Extracted Lab Results:\n")
+#     print("\n================================")
+#     print("Extracted Lab Results:\n")
 
-    for item in parsed_data["lab_results"]:
+#     for item in parsed_data["lab_results"]:
 
-        print(
-            f"{item['test']} → {item['value']} {item['unit']} | "
-            f"Range: {item['reference_range']} | Status: {item['status']}"
-        )
+#         print(
+#             f"{item['test']} → {item['value']} {item['unit']} | "
+#             f"Range: {item['reference_range']} | Status: {item['status']}"
+#         )
 
-    print("\n================================")
-    print("NER Detected Entities:\n")
+#     print("\n================================")
+#     print("NER Detected Entities:\n")
 
-    for ent in parsed_data["entities"][:20]:
+#     for ent in parsed_data["entities"][:20]:
 
-        print(ent)
+#         print(ent)

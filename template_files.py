@@ -20,7 +20,7 @@ list_of_files = [
     "design/theme.css",
     "logic/script.js",
     "logger_config.py",
-    "llm/llm_provider.py"
+    "llm/llm_provider.py",
     ".env",
     "requirements.txt"
 ]

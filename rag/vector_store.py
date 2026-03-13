@@ -161,18 +161,18 @@ def load_vector_store():
     
 
 # Testing the vector store creation and loading
-if __name__ == "__main__":
+# if __name__ == "__main__":
     
-    print("\nGenerating medical knowledge documents...\n")
-    docs = generate_medical_documents()
-    print(f"Total medical knowledge documents: {len(docs)}")
-    vs = create_vector_store(docs)
+#     print("\nGenerating medical knowledge documents...\n")
+#     docs = generate_medical_documents()
+#     print(f"Total medical knowledge documents: {len(docs)}")
+#     vs = create_vector_store(docs)
 
-    if vs:
-        print("Vector store created successfully\n")
-        query = "HDL Cholesterol 46 mg/dL"
-        results = vs.similarity_search(query, k=2)
-        print("Retrieved Knowledge:\n")
+#     if vs:
+#         print("Vector store created successfully\n")
+#         query = "HDL Cholesterol 46 mg/dL"
+#         results = vs.similarity_search(query, k=2)
+#         print("Retrieved Knowledge:\n")
 
-        for r in results:
-            print("-", r.page_content)
+#         for r in results:
+#             print("-", r.page_content)

@@ -68,10 +68,13 @@ Medical Knowledge:
 {knowledge}
 
 Rules:
-- Use simple language
-- Do not give medical diagnosis
-- Explain what the values mean
-- Keep explanation clear and short
+- Use simple and clear language
+- Explain what each medical value measures
+- Clearly mention whether the value is normal, high, or low
+- Explain why the test is important for health
+- Do not give medical diagnosis or treatment
+- Encourage the patient to discuss abnormal results with a doctor
+- Keep the explanation short and easy to understand
 """
         )
 

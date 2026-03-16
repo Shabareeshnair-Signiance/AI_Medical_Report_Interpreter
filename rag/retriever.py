@@ -8,7 +8,7 @@ from logger_config import logger
 
 def get_retriever():
     """
-    Load vector store and convert it to retriever.
+    Load vector store and convert it into a retriever.
     """
 
     try:
@@ -21,7 +21,6 @@ def get_retriever():
             logger.error("Vector store not found or empty")
             return None
 
-        # create retriever
         retriever = vector_store.as_retriever(
             search_type="similarity",
             search_kwargs={"k": 3}
@@ -37,6 +36,23 @@ def get_retriever():
         return None
 
 
+def clean_query(query):
+    """
+    Ensure the query is a clean string and not a large object.
+    """
+
+    if not isinstance(query, str):
+        query = str(query)
+
+    query = query.strip()
+
+    # prevent extremely long logs
+    if len(query) > 200:
+        query = query[:200] + "..."
+
+    return query
+
+
 def search_medical_knowledge(query: str, test_name: str):
     """
     Search medical knowledge using retriever.
@@ -50,20 +66,25 @@ def search_medical_knowledge(query: str, test_name: str):
         if retriever is None:
             return []
 
-        logger.info(f"Searching vector store for: {query}")
+        # clean the query before logging
+        safe_query = clean_query(query)
+
+        logger.info(f"Searching vector store for: {safe_query}")
 
         # retrieve top results
         results = retriever.invoke(query)
 
-        # filter results that contain the same test name
         filtered_results = []
 
         for doc in results:
 
-            if test_name.lower() in doc.page_content.lower():
-                filtered_results.append(doc.page_content)
+            content = doc.page_content
 
-        # if filtering removes everything, fall back to original results
+            # filter by test name
+            if test_name.lower() in content.lower():
+                filtered_results.append(content)
+
+        # fallback if filtering removes everything
         if not filtered_results:
             filtered_results = [doc.page_content for doc in results]
 
@@ -74,6 +95,7 @@ def search_medical_knowledge(query: str, test_name: str):
     except Exception as e:
 
         logger.error(f"Error retrieving medical knowledge: {str(e)}")
+
         return []
 
 

@@ -1,6 +1,6 @@
 import re
 from logger_config import logger
-from processing.pdf_reader import read_pdf
+#from processing.pdf_reader import read_pdf
 from transformers import pipeline
 
 # Loading medical NER Model
@@ -8,8 +8,8 @@ logger.info("Loading biomedical NER model")
 
 ner_pipeline = pipeline(
     "ner",
-    model = "d4data/biomedical-ner-all",
-    aggregation_strategy = "simple"
+    model="d4data/biomedical-ner-all",
+    aggregation_strategy="simple"
 )
 
 # common medical units
@@ -19,70 +19,52 @@ UNITS = [
     "pg/mL","mEq/L","µg/dL"
 ]
 
-
 # words indicating interpretation text
 IGNORE_WORDS = [
-    "less than",
-    "greater than",
-    "risk",
-    "information",
-    "performed",
-    "page",
-    "accession",
-    "doctor",
-    "patient",
-    "report",
-    "address",
-    "hospital",
-    "printed",
-    "date",
-    "collection",
-    "visit"
+    "less than","greater than","risk","information","performed",
+    "page","accession","doctor","patient","report","address",
+    "hospital","printed","date","collection","visit"
 ]
 
 
 def clean_line(line):
-
     line = re.sub(r"\.{2,}", " ", line)
     line = re.sub(r"\s+", " ", line)
-
     return line.strip()
 
 
-# Checking if the line contains unit or not
 def contains_unit(line):
-
     for unit in UNITS:
         if unit.lower() in line.lower():
             return unit
     return None
 
 
-# Detecting the interpretation lines carefully
 def is_interpretation(line):
-
     for word in IGNORE_WORDS:
         if word in line.lower():
             return True
     return False
 
 
-# Extracting the NER
+# Extracting NER entities
 def extract_entities(text):
+
     entities = ner_pipeline(text)
+
     ner_results = []
 
     for ent in entities:
         ner_results.append({
             "text": ent["word"],
             "type": ent["entity_group"],
-            "score": ent["score"]
+            "score": float(ent["score"])
         })
 
     return ner_results
 
 
-# Parsing the main core
+# Main parser
 def parse_medical_report(report_text):
 
     try:
@@ -116,7 +98,7 @@ def parse_medical_report(report_text):
 
             value = float(value_match.group())
 
-            # extract reference range
+            # detect reference range
             range_match = re.search(r"(\d+\.?\d*)\s*-\s*(\d+\.?\d*)", line)
 
             reference_range = None
@@ -155,7 +137,7 @@ def parse_medical_report(report_text):
 
             logger.info(f"Extracted {test_name}: {value} {unit} ({status})")
 
-        # Running the NER on report text
+        # Run NER but do not return full entities to avoid large logs
         ner_entities = extract_entities(report_text)
 
         logger.info(f"NER detected {len(ner_entities)} entities")
@@ -163,8 +145,7 @@ def parse_medical_report(report_text):
         logger.info("Medical report parsing completed")
 
         return {
-            "lab_results": medical_data,
-            "entities": ner_entities
+            "lab_results": medical_data
         }
 
     except Exception as e:

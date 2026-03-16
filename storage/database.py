@@ -4,22 +4,24 @@ import json
 import os
 from logger_config import logger
 
-
+# path of sqlite database
 DB_PATH = "data/medical_reports.db"
 
 
 def init_database():
     """
-    Initialize SQLite database and create table if it doesn't exist.
+    Create database and table if it doesn't exist.
     """
 
     try:
 
+        # make sure data folder exists
         os.makedirs("data", exist_ok=True)
 
         conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()   # FIXED
+        cursor = conn.cursor()
 
+        # create table for storing report outputs
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS reports (
             file_hash TEXT PRIMARY KEY,
@@ -42,12 +44,14 @@ def init_database():
 def generate_file_hash(file_path):
     """
     Generate SHA256 hash of uploaded PDF file.
+    Used to detect duplicate reports.
     """
 
     try:
 
         sha256 = hashlib.sha256()
 
+        # read file in chunks
         with open(file_path, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
                 sha256.update(chunk)
@@ -61,7 +65,7 @@ def generate_file_hash(file_path):
 
 def check_existing_report(file_hash):
     """
-    Check if the report already exists in database.
+    Check whether the report already exists in database.
     """
 
     try:
@@ -82,6 +86,7 @@ def check_existing_report(file_hash):
 
         conn.close()
 
+        # if report already exists return stored results
         if result:
 
             logger.info("Report found in database cache")
@@ -131,25 +136,3 @@ def save_report(file_hash, state):
     except Exception as e:
 
         logger.error(f"Failed to save report: {str(e)}")
-
-
-# Testing the database
-if __name__ == "__main__":
-
-    init_database()
-
-    fake_state = {
-        "medical_data": {"Glucose": "150 mg/dL"},
-        "analysis": "Glucose appears high",
-        "explanation": "Blood sugar is above normal",
-        "guidance": "Reduce sugar intake and exercise"
-    }
-
-    file_hash = "test_hash_123"
-
-    save_report(file_hash, fake_state)
-
-    result = check_existing_report(file_hash)
-
-    print("\nRetrieved from DB:\n")
-    print(result)

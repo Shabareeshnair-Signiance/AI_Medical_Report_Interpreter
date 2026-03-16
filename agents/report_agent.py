@@ -5,9 +5,9 @@ from llm.llm_provider import get_llm
 from logger_config import logger
 
 # used only for testing
-#from processing.pdf_reader import read_pdf
-#from processing.report_parser import parse_medical_report
-#from rag.retriever import search_medical_knowledge
+from processing.pdf_reader import read_pdf
+from processing.report_parser import parse_medical_report
+from rag.retriever import search_medical_knowledge
 
 
 def report_agent(state: dict):
@@ -37,17 +37,24 @@ def report_agent(state: dict):
             """
 You are a medical AI assistant.
 
-Given the following medical result, generate ONLY one short statement.
+Given the following medical result, generate ONLY one short statement
+summarizing the value compared to the normal range.
+
+Clearly state whether the value is:
+- within the normal range
+- above the normal range
+- below the normal range
 
 Example:
-"Your HDL cholesterol is 37 mg/dL, which is not in the range of 40–59 mg/dL."
+"Your HDL cholesterol is 37 mg/dL, which is below the normal range of 40–59 mg/dL."
 
 Medical Result:
 {medical_data}
 
-Do not provide explanations.
-Do not add extra text.
-Only produce the single result statement.
+Rules:
+- Produce only ONE short statement
+- Do not provide explanations
+- Do not add extra text
 """
         )
 
@@ -75,67 +82,67 @@ Only produce the single result statement.
 
 # Testing the agent using Sample Report
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
 
-#     report_path = "data/uploads/Glucose_report.pdf"
+    report_path = "data/uploads/Glucose_report.pdf"
 
-#     print("\nReading Medical Report...\n")
+    print("\nReading Medical Report...\n")
 
-#     # read pdf
-#     report_text = read_pdf(report_path)
+    # read pdf
+    report_text = read_pdf(report_path)
 
-#     if not report_text:
-#         print("Failed to read report")
-#         exit()
+    if not report_text:
+        print("Failed to read report")
+        exit()
 
-#     print("Parsing report...\n")
+    print("Parsing report...\n")
 
-#     # parse medical values
-#     parsed_data = parse_medical_report(report_text)
+    # parse medical values
+    parsed_data = parse_medical_report(report_text)
 
-#     if not parsed_data:
-#         print("No medical values found")
-#         exit()
+    if not parsed_data:
+        print("No medical values found")
+        exit()
 
-#     lab_results = parsed_data.get("lab_results", [])
+    lab_results = parsed_data.get("lab_results", [])
 
-#     medical_data = {}
+    medical_data = {}
 
-#     # prepare medical data with value + reference range
-#     for item in lab_results:
+    # prepare medical data with value + reference range
+    for item in lab_results:
 
-#         test_name = item["test"]
-#         value = item["value"]
-#         unit = item["unit"]
-#         ref_range = item.get("reference_range", "unknown")
+        test_name = item["test"]
+        value = item["value"]
+        unit = item["unit"]
+        ref_range = item.get("reference_range", "unknown")
 
-#         medical_data[test_name] = f"{value} {unit} (normal range {ref_range})"
+        medical_data[test_name] = f"{value} {unit} (normal range {ref_range})"
 
-#     # retrieve knowledge (for later agents)
-#     knowledge_context = []
+    # retrieve knowledge (for later agents)
+    knowledge_context = []
 
-#     for item in lab_results:
+    for item in lab_results:
 
-#         test_name = item["test"]
-#         value = item["value"]
-#         unit = item["unit"]
+        test_name = item["test"]
+        value = item["value"]
+        unit = item["unit"]
 
-#         query = f"{test_name} {value} {unit}"
+        query = f"{test_name} {value} {unit}"
 
-#         results = search_medical_knowledge(query, test_name)
+        results = search_medical_knowledge(query, test_name)
 
-#         knowledge_context.extend(results)
+        knowledge_context.extend(results)
 
-#     # create LangGraph state
-#     state = {
-#         "medical_data": medical_data,
-#         "knowledge": knowledge_context
-#     }
+    # create LangGraph state
+    state = {
+        "medical_data": medical_data,
+        "knowledge": knowledge_context
+    }
 
-#     print("\nRunning Report Analysis Agent...\n")
+    print("\nRunning Report Analysis Agent...\n")
 
-#     output_state = report_agent(state)
+    output_state = report_agent(state)
 
-#     print("\n===== Analysis Result =====\n")
+    print("\n===== Analysis Result =====\n")
 
-#     print(output_state["analysis"])
+    print(output_state["analysis"])

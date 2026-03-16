@@ -18,8 +18,8 @@ init_database()
 
 
 # path of sample report
-report_path = "data/uploads/Sample Report.pdf"
-# report_path = "data/uploads/Glucose_report.pdf"
+#report_path = "data/uploads/Sample Report.pdf"
+report_path = "data/uploads/Glucose_report.pdf"
 
 print("\nReading medical report...\n")
 

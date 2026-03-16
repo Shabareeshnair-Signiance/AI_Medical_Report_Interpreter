@@ -6,9 +6,9 @@ from rag.retriever import search_medical_knowledge
 from logger_config import logger
 
 # only used for testing this agent
-from processing.pdf_reader import read_pdf
-from processing.report_parser import parse_medical_report
-from agents.report_agent import report_agent
+# from processing.pdf_reader import read_pdf
+# from processing.report_parser import parse_medical_report
+# from agents.report_agent import report_agent
 
 
 def explanation_agent(state: dict):
@@ -103,56 +103,56 @@ Rules:
     
 
 # Testing the explanation agent whether it's working or not
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    print("\nReading Medical Report...\n")
-    #report_path = "data/uploads/Sample Report.pdf"
-    report_path = "data/uploads/Glucose_report.pdf"
+#     print("\nReading Medical Report...\n")
+#     #report_path = "data/uploads/Sample Report.pdf"
+#     report_path = "data/uploads/Glucose_report.pdf"
 
-    # reading the pdf file
-    report_text = read_pdf(report_path)
+#     # reading the pdf file
+#     report_text = read_pdf(report_path)
 
-    if not report_text:
-        print("Failed to read report")
-        exit()
+#     if not report_text:
+#         print("Failed to read report")
+#         exit()
 
-    print("Parsing Medical Report...\n")
+#     print("Parsing Medical Report...\n")
 
-    # Extracting the lab values from the report
-    parsed_data = parse_medical_report(report_text)
+#     # Extracting the lab values from the report
+#     parsed_data = parse_medical_report(report_text)
 
-    if not parsed_data:
-        print("No medical values found.")
-        exit()
+#     if not parsed_data:
+#         print("No medical values found.")
+#         exit()
 
-    lab_results = parsed_data.get("lab_results", [])
+#     lab_results = parsed_data.get("lab_results", [])
 
-    medical_data = {}
+#     medical_data = {}
 
-    # Preparing medical data dictionary
-    for item in lab_results:
-        test_name = item["test"]
-        value = item["value"]
-        unit = item["unit"]
-        ref_range = item.get("reference_range", "unknown")
+#     # Preparing medical data dictionary
+#     for item in lab_results:
+#         test_name = item["test"]
+#         value = item["value"]
+#         unit = item["unit"]
+#         ref_range = item.get("reference_range", "unknown")
 
-        medical_data[test_name] = f"{value} {unit} (normal range {ref_range})"
+#         medical_data[test_name] = f"{value} {unit} (normal range {ref_range})"
 
-    # creating initial state for agents
-    state = {
-        "medical_data" : medical_data
-    }
-    print("\nRunning Report Agent..\n")
+#     # creating initial state for agents
+#     state = {
+#         "medical_data" : medical_data
+#     }
+#     print("\nRunning Report Agent..\n")
 
-    # running the agent 1 to generate analysis
-    state = report_agent(state)
+#     # running the agent 1 to generate analysis
+#     state = report_agent(state)
 
-    print("\nAnalysis Result:\n")
-    print(state.get("analysis"))
+#     print("\nAnalysis Result:\n")
+#     print(state.get("analysis"))
 
-    print("\nRunning Explanation Agent..\n")
+#     print("\nRunning Explanation Agent..\n")
 
-    # running the explanation agent
-    state = explanation_agent(state)
-    print("\n---- Medical Explanation ----\n")
-    print(state.get("explanation"))
+#     # running the explanation agent
+#     state = explanation_agent(state)
+#     print("\n---- Medical Explanation ----\n")
+#     print(state.get("explanation"))

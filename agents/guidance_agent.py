@@ -5,10 +5,10 @@ from llm.llm_provider import get_llm
 from logger_config import logger
 
 # used only for testing
-from processing.pdf_reader import read_pdf
-from processing.report_parser import parse_medical_report
-from agents.report_agent import report_agent
-from agents.explanation_agent import explanation_agent
+# from processing.pdf_reader import read_pdf
+# from processing.report_parser import parse_medical_report
+# from agents.report_agent import report_agent
+# from agents.explanation_agent import explanation_agent
 
 def guidance_agent(state: dict):
     """
@@ -76,51 +76,51 @@ Rules:
     
 
 # testing the Guidnce Agent phase
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    # path to the data
-    #sample_pdf = "data/uploads/Sample Report.pdf"
-    sample_pdf = "data/uploads/Glucose_report.pdf"
+#     # path to the data
+#     #sample_pdf = "data/uploads/Sample Report.pdf"
+#     sample_pdf = "data/uploads/Glucose_report.pdf"
 
-    print("\nReading PDF..\n")
+#     print("\nReading PDF..\n")
 
-    # Reading the PDF File
-    report_text = read_pdf(sample_pdf)
+#     # Reading the PDF File
+#     report_text = read_pdf(sample_pdf)
 
-    if not report_text:
-        print("failed to read report")
-        exit()
+#     if not report_text:
+#         print("failed to read report")
+#         exit()
 
-    print("Parsing Medical Report..\n")
+#     print("Parsing Medical Report..\n")
 
-    # Parse report values
-    medical_data = parse_medical_report(report_text)
+#     # Parse report values
+#     medical_data = parse_medical_report(report_text)
 
-    if not medical_data:
-        print("No Medical data found")
-        exit()
+#     if not medical_data:
+#         print("No Medical data found")
+#         exit()
 
-    # Initial LangGraph state
-    state = {
-        "medical_data" : medical_data
-    }
+#     # Initial LangGraph state
+#     state = {
+#         "medical_data" : medical_data
+#     }
 
-    print("\nRunning Report Agent..\n")
-    state = report_agent(state)
+#     print("\nRunning Report Agent..\n")
+#     state = report_agent(state)
 
-    print("\nRunning Explanation Agent..\n")
-    state = explanation_agent(state)
+#     print("\nRunning Explanation Agent..\n")
+#     state = explanation_agent(state)
 
-    print("\nRunning Guidance Agent..\n")
-    state = guidance_agent(state)
+#     print("\nRunning Guidance Agent..\n")
+#     state = guidance_agent(state)
 
-    print("\n------- Final Output -------\n")
+#     print("\n------- Final Output -------\n")
 
-    print("\nAnalysis:\n")
-    print(state.get("analysis", "No analysis generated"))
+#     print("\nAnalysis:\n")
+#     print(state.get("analysis", "No analysis generated"))
 
-    print("\nExplanation:\n")
-    print(state.get("explanation", "No explanation generated"))
+#     print("\nExplanation:\n")
+#     print(state.get("explanation", "No explanation generated"))
 
-    print("\nHealth Guidance:\n")
-    print(state.get("guidance", "No guidance generated"))
+#     print("\nHealth Guidance:\n")
+#     print(state.get("guidance", "No guidance generated"))

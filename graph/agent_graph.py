@@ -44,46 +44,46 @@ def build_medical_graph():
     
 
 # testing the entire agent with sample report
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    from processing.pdf_reader import read_pdf
-    from processing.report_parser import parse_medical_report
+#     from processing.pdf_reader import read_pdf
+#     from processing.report_parser import parse_medical_report
 
-    print("\nStarting Medical Report AI Test...\n")
+#     print("\nStarting Medical Report AI Test...\n")
 
-    # loading langGraph
-    graph = build_medical_graph()
+#     # loading langGraph
+#     graph = build_medical_graph()
 
-    # sample report path
-    #sample_pdf = "data/uploads/Sample Report.pdf"
-    sample_pdf = "data/uploads/Glucose_report.pdf"
+#     # sample report path
+#     #sample_pdf = "data/uploads/Sample Report.pdf"
+#     sample_pdf = "data/uploads/Glucose_report.pdf"
 
-    print("Reading PDF File...\n")
+#     print("Reading PDF File...\n")
 
-    # reading pdf
-    report_text = read_pdf(sample_pdf)
-    print("Parsing report values..\n")
+#     # reading pdf
+#     report_text = read_pdf(sample_pdf)
+#     print("Parsing report values..\n")
 
-    # extracting medical values
-    medical_data = parse_medical_report(report_text)
-    print("Running LangGraph Agents..\n")
+#     # extracting medical values
+#     medical_data = parse_medical_report(report_text)
+#     print("Running LangGraph Agents..\n")
 
-    # initialising the state
-    state = {
-        "medical_data" : medical_data
-    }
+#     # initialising the state
+#     state = {
+#         "medical_data" : medical_data
+#     }
 
-    # running the graph
-    result = graph.invoke(state)
+#     # running the graph
+#     result = graph.invoke(state)
 
-    print("\n-------- Final Output -------\n")
-    print("Medical Data:\n", result["medical_data"])
+#     print("\n-------- Final Output -------\n")
+#     print("Medical Data:\n", result["medical_data"])
 
-    print("\nReport Analysis:\n")
-    print(result["analysis"])
+#     print("\nReport Analysis:\n")
+#     print(result["analysis"])
 
-    print("\nExplanation:\n")
-    print(result["explanation"])
+#     print("\nExplanation:\n")
+#     print(result["explanation"])
 
-    print("\nHealth Guidance:\n")
-    print(result["guidance"])
+#     print("\nHealth Guidance:\n")
+#     print(result["guidance"])

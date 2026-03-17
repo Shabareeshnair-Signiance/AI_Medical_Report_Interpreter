@@ -76,7 +76,8 @@ def index():
                     medical_data=existing["medical_data"],
                     analysis=existing["analysis"],
                     explanation=existing["explanation"],
-                    guidance=existing["guidance"]
+                    guidance=existing["guidance"],
+                    validation=validation_result
                 )
 
             # PROCESSING
@@ -103,7 +104,8 @@ def index():
                 medical_data=result["medical_data"],
                 analysis=result["analysis"],
                 explanation=result["explanation"],
-                guidance=result["guidance"]
+                guidance=result["guidance"],
+                validation=validation_result
             )
 
         return render_template("main.html")

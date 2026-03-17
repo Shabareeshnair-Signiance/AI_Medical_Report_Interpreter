@@ -36,7 +36,7 @@
                 </ul>
             </div>
 
-            <!-- ✅ VALIDATION SECTION (NEW) -->
+            <!-- VALIDATION SECTION (NEW) -->
             <div class="card">
                 <h2>Validation Details</h2>
 
@@ -44,9 +44,9 @@
                 <p>
                     <strong>Status:</strong>
                     {% if validation.is_valid %}
-                        ✅ Valid Report
+                         Valid Report
                     {% else %}
-                        ❌ Invalid Report
+                         Invalid Report
                     {% endif %}
                 </p>
 
@@ -54,9 +54,9 @@
                 <p>
                     <strong>Report Type:</strong>
                     {% if validation.is_duplicate %}
-                        🔁 Existing Report — Data already processed
+                         Existing Report — Data already processed
                     {% else %}
-                        🆕 New Report — Freshly processed
+                         New Report — Freshly processed
                     {% endif %}
                 </p>
 

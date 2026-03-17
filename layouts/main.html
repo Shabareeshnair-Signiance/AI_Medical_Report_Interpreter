@@ -36,6 +36,74 @@
                 </ul>
             </div>
 
+            <!-- ✅ VALIDATION SECTION (NEW) -->
+            <div class="card">
+                <h2>Validation Details</h2>
+
+                <!-- Status -->
+                <p>
+                    <strong>Status:</strong>
+                    {% if validation.is_valid %}
+                        ✅ Valid Report
+                    {% else %}
+                        ❌ Invalid Report
+                    {% endif %}
+                </p>
+
+                <!-- New / Existing -->
+                <p>
+                    <strong>Report Type:</strong>
+                    {% if validation.is_duplicate %}
+                        🔁 Existing Report — Data already processed
+                    {% else %}
+                        🆕 New Report — Freshly processed
+                    {% endif %}
+                </p>
+
+                <!-- Name -->
+                {% if validation.extracted_data.user_name %}
+                    <p><strong>Name:</strong> {{ validation.extracted_data.user_name }}</p>
+                {% endif %}
+
+                <!-- Identifiers -->
+                {% if validation.extracted_data.pid %}
+                    <p><strong>PID:</strong> {{ validation.extracted_data.pid }}</p>
+                {% endif %}
+
+                {% if validation.extracted_data.reg_no %}
+                    <p><strong>Reg No:</strong> {{ validation.extracted_data.reg_no }}</p>
+                {% endif %}
+
+                {% if validation.extracted_data.lab_no %}
+                    <p><strong>Lab No:</strong> {{ validation.extracted_data.lab_no }}</p>
+                {% endif %}
+
+                {% if validation.extracted_data.patient_id %}
+                    <p><strong>Patient ID:</strong> {{ validation.extracted_data.patient_id }}</p>
+                {% endif %}
+
+                {% if validation.extracted_data.accession_no %}
+                    <p><strong>Accession No:</strong> {{ validation.extracted_data.accession_no }}</p>
+                {% endif %}
+
+                {% if validation.extracted_data.visit_no %}
+                    <p><strong>Visit No:</strong> {{ validation.extracted_data.visit_no }}</p>
+                {% endif %}
+
+                <!-- Errors -->
+                {% if validation.errors %}
+                    <div style="color: red;">
+                        <strong>Errors:</strong>
+                        <ul>
+                            {% for err in validation.errors %}
+                                <li>{{ err }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+
+            </div>
+
             <!-- Analysis -->
             <div class="card">
                 <h2>Report Analysis</h2>

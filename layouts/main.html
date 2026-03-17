@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Medical Report Interpreter</title>
+
+    <!-- Link CSS -->
+    <link rel="stylesheet" href="/design/theme.css">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <!-- Title -->
+        <h1>AI Medical Report Interpreter</h1>
+
+        <!-- Upload Form -->
+        <form method="POST" enctype="multipart/form-data" class="upload-form">
+            <input type="file" name="file" accept=".pdf" required>
+            <button type="submit">Upload Report</button>
+        </form>
+
+        <!-- Results Section -->
+        {% if medical_data %}
+
+        <div class="results">
+
+            <!-- Medical Data -->
+            <div class="card">
+                <h2>Extracted Medical Data</h2>
+                <ul>
+                    {% for key, value in medical_data.items() %}
+                        <li><strong>{{ key }}:</strong> {{ value }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <!-- Analysis -->
+            <div class="card">
+                <h2>Report Analysis</h2>
+                <p>{{ analysis }}</p>
+            </div>
+
+            <!-- Explanation -->
+            <div class="card">
+                <h2>Explanation</h2>
+                <p>{{ explanation }}</p>
+            </div>
+
+            <!-- Guidance -->
+            <div class="card">
+                <h2>Health Guidance</h2>
+                <p>{{ guidance }}</p>
+            </div>
+
+        </div>
+
+        {% endif %}
+
+    </div>
+
+    <!-- Link JS -->
+    <script src="/logic/script.js"></script>
+
+</body>
+</html>

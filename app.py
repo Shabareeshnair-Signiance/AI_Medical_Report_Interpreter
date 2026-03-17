@@ -1,5 +1,7 @@
-from flask import Flask, render_template, request
 import os
+from flask import Flask, render_template, request
+
+from agents.validation_agent import ValidationAgent
 
 from processing.pdf_reader import read_pdf
 from processing.report_parser import parse_medical_report
@@ -8,8 +10,6 @@ from graph.agent_graph import build_medical_graph
 
 from storage.database import (
     init_database,
-    generate_file_hash,
-    check_existing_report,
     save_report
 )
 
@@ -34,6 +34,9 @@ init_database()
 # Load LangGraph
 graph = build_medical_graph()
 
+# Initialize Validation Agent
+validator = ValidationAgent()
+
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -52,27 +55,31 @@ def index():
 
             logger.info(f"File uploaded: {file.filename}")
 
-            # Generate hash
-            file_hash = generate_file_hash(file_path)
+            # VALIDATION
+            validation_result = validator.validate(file_path)
 
-            if not file_hash:
-                return "Error generating file hash"
+            # If invalid → stop here
+            if not validation_result["is_valid"]:
+                return render_template(
+                    "main.html",
+                    errors=validation_result["errors"]
+                )
 
-            # Check cache
-            cached_result = check_existing_report(file_hash)
+            # If duplicate → return cached result
+            if validation_result["is_duplicate"]:
+                logger.info("Returning cached result (Validation Agent)")
 
-            if cached_result:
-                logger.info("Returning cached result")
+                existing = validation_result["existing_result"]
 
                 return render_template(
                     "main.html",
-                    medical_data=cached_result["medical_data"],
-                    analysis=cached_result["analysis"],
-                    explanation=cached_result["explanation"],
-                    guidance=cached_result["guidance"]
+                    medical_data=existing["medical_data"],
+                    analysis=existing["analysis"],
+                    explanation=existing["explanation"],
+                    guidance=existing["guidance"]
                 )
 
-            # Run pipeline
+            # PROCESSING
             logger.info("Running full pipeline")
 
             report_text = read_pdf(file_path)
@@ -84,6 +91,9 @@ def index():
 
             result = graph.invoke(state)
 
+
+            # SAVE RESULT
+            file_hash = validation_result["file_hash"]
             save_report(file_hash, result)
 
             logger.info("Pipeline completed successfully")

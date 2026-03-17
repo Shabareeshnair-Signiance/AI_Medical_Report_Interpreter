@@ -84,7 +84,7 @@ class ValidationAgent:
             if not extracted.get("user_name"):
                 result["errors"].append("User name not found")
 
-        # 🔥 DUPLICATE CHECK (CORRECT)
+        # DUPLICATE CHECK (CORRECT)
         if result["is_valid"]:
             existing = check_existing_report(file_hash)
 

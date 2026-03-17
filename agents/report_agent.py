@@ -84,7 +84,8 @@ Rules:
 
 # if __name__ == "__main__":
 
-#     report_path = "data/uploads/Glucose_report.pdf"
+#     report_path = "sample_data/Glucose_report.pdf"
+      #report_path = "sample_data/Sample Report.pdf"
 
 #     print("\nReading Medical Report...\n")
 

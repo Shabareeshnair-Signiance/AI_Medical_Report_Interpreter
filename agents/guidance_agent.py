@@ -79,8 +79,8 @@ Rules:
 # if __name__ == "__main__":
 
 #     # path to the data
-#     #sample_pdf = "data/uploads/Sample Report.pdf"
-#     sample_pdf = "data/uploads/Glucose_report.pdf"
+#     #sample_pdf = "sample_data/Sample Report.pdf"
+#     sample_pdf = "sample_data/Glucose_report.pdf"
 
 #     print("\nReading PDF..\n")
 

@@ -55,8 +55,7 @@ def explanation_agent(state: dict):
             """
 You are a helpful Medical AI Assistant.
 
-Explain the following medical report results in simple language
-so a normal patient can understand them.
+Explain the following medical report results in simple language so a normal patient can understand them.
 
 Medical Report Values:
 {medical_data}
@@ -67,14 +66,32 @@ Analysis:
 Medical Knowledge:
 {knowledge}
 
-Rules:
-- Use simple and clear language
-- Explain what each medical value measures
-- Clearly mention whether the value is normal, high, or low
-- Explain why the test is important for health
-- Do not give medical diagnosis or treatment
-- Encourage the patient to discuss abnormal results with a doctor
-- Keep the explanation short and easy to understand
+Instructions:
+
+1. For each test, follow this exact format:
+
+Test Name: <name>
+
+What does this test measure?
+<Write a simple explanation>
+
+Is this value normal, high, or low?
+<Clearly state status and what it means>
+
+Why is this important for health?
+<Explain importance in simple terms>
+
+--------------------------------------------------
+
+2. Rules:
+- Use very simple and clear language
+- Do NOT use symbols like ** or markdown formatting
+- Keep each question on a new line
+- Leave one blank line between sections
+- Do NOT write everything in one paragraph
+- Do NOT give diagnosis or treatment
+- Encourage consulting a doctor if abnormal
+- Keep explanation short and readable
 """
         )
 

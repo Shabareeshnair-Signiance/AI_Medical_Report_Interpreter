@@ -67,7 +67,7 @@ class ValidationAgent:
     # -------- HASH --------
     def generate_file_hash(self, file_path: str) -> str:
         try:
-            hasher = hashlib.md5()
+            hasher = hashlib.sha256()
             with open(file_path, "rb") as f:
                 for chunk in iter(lambda: f.read(4096), b""):
                     hasher.update(chunk)

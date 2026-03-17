@@ -12,7 +12,6 @@
 
     <div class="container">
 
-        <!-- Title -->
         <h1>AI Medical Report Interpreter</h1>
 
         <!-- Upload Form -->
@@ -21,51 +20,55 @@
             <button type="submit">Upload Report</button>
         </form>
 
-        <!-- Results Section -->
         {% if medical_data %}
 
         <div class="results">
 
-            <!-- Medical Data -->
+            <!-- CLEAN LAB RESULTS -->
             <div class="card">
                 <h2>Extracted Medical Data</h2>
-                <ul>
-                    {% for key, value in medical_data.items() %}
-                        <li><strong>{{ key }}:</strong> {{ value }}</li>
+
+                {% if medical_data.lab_results %}
+                    {% for item in medical_data.lab_results %}
+                        <div style="margin-bottom: 15px;">
+                            <p><strong>Test:</strong> {{ item.test }}</p>
+                            <p><strong>Value:</strong> {{ item.value }}</p>
+                            <p><strong>Reference Range:</strong> {{ item.reference_range }}</p>
+                            <p><strong>Status:</strong> {{ item.status }}</p>
+                        </div>
+                        <!-- Removed unwanted line -->
                     {% endfor %}
-                </ul>
+                {% else %}
+                    <p>No lab results found</p>
+                {% endif %}
             </div>
 
-            <!-- VALIDATION SECTION (NEW) -->
+            <!-- VALIDATION -->
             <div class="card">
                 <h2>Validation Details</h2>
 
-                <!-- Status -->
                 <p>
                     <strong>Status:</strong>
                     {% if validation.is_valid %}
-                         Valid Report
+                        Valid Report
                     {% else %}
-                         Invalid Report
+                        Invalid Report
                     {% endif %}
                 </p>
 
-                <!-- New / Existing -->
                 <p>
                     <strong>Report Type:</strong>
                     {% if validation.is_duplicate %}
-                         Existing Report — Data already processed
+                        Existing Report — Data already processed
                     {% else %}
-                         New Report — Freshly processed
+                        New Report — Freshly processed
                     {% endif %}
                 </p>
 
-                <!-- Name -->
                 {% if validation.extracted_data.user_name %}
                     <p><strong>Name:</strong> {{ validation.extracted_data.user_name }}</p>
                 {% endif %}
 
-                <!-- Identifiers -->
                 {% if validation.extracted_data.pid %}
                     <p><strong>PID:</strong> {{ validation.extracted_data.pid }}</p>
                 {% endif %}
@@ -77,31 +80,6 @@
                 {% if validation.extracted_data.lab_no %}
                     <p><strong>Lab No:</strong> {{ validation.extracted_data.lab_no }}</p>
                 {% endif %}
-
-                {% if validation.extracted_data.patient_id %}
-                    <p><strong>Patient ID:</strong> {{ validation.extracted_data.patient_id }}</p>
-                {% endif %}
-
-                {% if validation.extracted_data.accession_no %}
-                    <p><strong>Accession No:</strong> {{ validation.extracted_data.accession_no }}</p>
-                {% endif %}
-
-                {% if validation.extracted_data.visit_no %}
-                    <p><strong>Visit No:</strong> {{ validation.extracted_data.visit_no }}</p>
-                {% endif %}
-
-                <!-- Errors -->
-                {% if validation.errors %}
-                    <div style="color: red;">
-                        <strong>Errors:</strong>
-                        <ul>
-                            {% for err in validation.errors %}
-                                <li>{{ err }}</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                {% endif %}
-
             </div>
 
             <!-- Analysis -->
@@ -110,16 +88,20 @@
                 <p>{{ analysis }}</p>
             </div>
 
-            <!-- Explanation -->
+            <!-- FIXED EXPLANATION -->
             <div class="card">
                 <h2>Explanation</h2>
-                <p>{{ explanation }}</p>
+                <div style="white-space: pre-line;">
+                    {{ explanation }}
+                </div>
             </div>
 
             <!-- Guidance -->
             <div class="card">
                 <h2>Health Guidance</h2>
-                <p>{{ guidance }}</p>
+                <div style="white-space: pre-line;">
+                    {{ guidance }}
+                </div>
             </div>
 
         </div>
@@ -128,7 +110,6 @@
 
     </div>
 
-    <!-- Link JS -->
     <script src="/logic/script.js"></script>
 
 </body>

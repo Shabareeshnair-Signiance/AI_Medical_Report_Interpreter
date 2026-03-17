@@ -24,28 +24,58 @@ class ValidationAgent:
             logger.error(f"Error extracting PDF text: {e}")
             return ""
 
-    # Extract user details from text
+    # Extract user details from text (UPDATED)
     def extract_user_details(self, text: str) -> dict:
         data = {
             "user_name": None,
             "reg_no": None,
-            "lab_no": None
+            "lab_no": None,
+            "pid": None,
+            "patient_id": None,
+            "accession_no": None,
+            "visit_no": None
         }
 
-        # Name (simple pattern)
-        name_match = re.search(r"Name[:\-]?\s*(.+)", text, re.IGNORECASE)
-        if name_match:
-            data["user_name"] = name_match.group(1).strip()
+        # Name patterns
+        name_patterns = [
+            r"Name[:\-]?\s*(.+)",
+            r"Patient[:\-]?\s*(.+)"
+        ]
+        for pattern in name_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                data["user_name"] = match.group(1).strip()
+                break
 
-        # Registration Number
+        # Reg No
         reg_match = re.search(r"(Reg\s*No|Registration\s*No)[:\-]?\s*(\w+)", text, re.IGNORECASE)
         if reg_match:
             data["reg_no"] = reg_match.group(2).strip()
 
-        # Lab Number
+        # Lab No
         lab_match = re.search(r"(Lab\s*No)[:\-]?\s*(\w+)", text, re.IGNORECASE)
         if lab_match:
             data["lab_no"] = lab_match.group(2).strip()
+
+        # PID (very common)
+        pid_match = re.search(r"(PID)[:\-]?\s*(\w+)", text, re.IGNORECASE)
+        if pid_match:
+            data["pid"] = pid_match.group(2).strip()
+
+        # Patient ID
+        patient_id_match = re.search(r"(Patient\s*ID)[:\-]?\s*(\w+)", text, re.IGNORECASE)
+        if patient_id_match:
+            data["patient_id"] = patient_id_match.group(2).strip()
+
+        # Accession Number
+        accession_match = re.search(r"(Accession)[:\-]?\s*(\S+)", text, re.IGNORECASE)
+        if accession_match:
+            data["accession_no"] = accession_match.group(2).strip()
+
+        # Visit Number
+        visit_match = re.search(r"(Visit\s*Number)[:\-]?\s*(\S+)", text, re.IGNORECASE)
+        if visit_match:
+            data["visit_no"] = visit_match.group(2).strip()
 
         return data
 
@@ -62,14 +92,25 @@ class ValidationAgent:
             return None
 
     # Validate extracted data
-    def validate_user(self, user_name: str, reg_no: str, lab_no: str) -> list:
+    def validate_user(self, data: dict) -> list:
         errors = []
 
-        if not user_name:
+        # Name check
+        if not data.get("user_name"):
             errors.append("User name not found in report.")
 
-        if not reg_no and not lab_no:
-            errors.append("Neither Reg No nor Lab No found in report.")
+        # Identifier check (ANY ONE should exist)
+        identifiers = [
+            data.get("reg_no"),
+            data.get("lab_no"),
+            data.get("pid"),
+            data.get("patient_id"),
+            data.get("accession_no"),
+            data.get("visit_no"),
+        ]
+
+        if not any(identifiers):
+            errors.append("No valid identifier found (Reg No / Lab No / PID / etc).")
 
         return errors
 
@@ -96,7 +137,7 @@ class ValidationAgent:
             return False
         return True
 
-    # Main validation pipeline (AUTO MODE)
+    # Main validation pipeline
     def validate(self, file_path: str) -> dict:
         logger.info("Starting validation process")
 
@@ -129,21 +170,17 @@ class ValidationAgent:
             extracted = self.extract_user_details(text)
             result["extracted_data"] = extracted
 
-            user_name = extracted["user_name"]
-            reg_no = extracted["reg_no"]
-            lab_no = extracted["lab_no"]
-
             # Validate extracted data
-            user_errors = self.validate_user(user_name, reg_no, lab_no)
+            user_errors = self.validate_user(extracted)
             if user_errors:
                 result["is_valid"] = False
                 result["errors"].extend(user_errors)
 
-            # Identifier logic
-            if reg_no:
-                result["identifier_used"] = f"Reg No: {reg_no}"
-            elif lab_no:
-                result["identifier_used"] = f"Lab No: {lab_no}"
+            # Identifier priority logic
+            for key in ["reg_no", "lab_no", "pid", "patient_id", "accession_no", "visit_no"]:
+                if extracted.get(key):
+                    result["identifier_used"] = f"{key}: {extracted.get(key)}"
+                    break
 
         # Hash and duplicate check
         if result["is_valid"]:

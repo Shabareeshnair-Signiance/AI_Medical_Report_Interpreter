@@ -33,7 +33,7 @@ def init_database():
         logger.error(f"Database initialization failed: {str(e)}")
 
 
-# 🔥 SINGLE SOURCE OF TRUTH FOR HASH
+# SINGLE SOURCE OF TRUTH FOR HASH
 def generate_file_hash_from_bytes(file_bytes):
     try:
         sha256 = hashlib.sha256()

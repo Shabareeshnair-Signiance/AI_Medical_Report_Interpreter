@@ -1,14 +1,13 @@
 import re
 from logger_config import logger
 
-# common medical units
+# extended medical units
 UNITS = [
     "mg/dL","g/dL","mmol/L","IU/L","U/L",
-    "cells/mcL","/mcL","/µL","%","ng/mL",
-    "pg/mL","mEq/L","µg/dL"
+    "cells/mcL","/mcL","/µL","/uL","%","ng/mL",
+    "pg/mL","mEq/L","µg/dL","/cumm"
 ]
 
-# words indicating non-lab text
 IGNORE_WORDS = [
     "less than","greater than","risk","information","performed",
     "page","accession","doctor","patient","report","address",
@@ -30,58 +29,55 @@ def contains_unit(line):
 
 
 def is_interpretation(line):
-    for word in IGNORE_WORDS:
-        if word in line.lower():
-            return True
-    return False
+    return any(word in line.lower() for word in IGNORE_WORDS)
+
+
+# -------- HELPER --------
+def extract_numbers(text):
+    """
+    Extract numbers including comma values like 150,000
+    """
+    nums = re.findall(r"\d{1,3}(?:,\d{3})*(?:\.\d+)?", text)
+    return [float(n.replace(",", "")) for n in nums]
 
 
 # -------- MAIN PARSER --------
 def parse_medical_report(report_text):
 
     try:
-
         logger.info("Starting medical report parsing")
 
         medical_data = []
-
         lines = report_text.split("\n")
 
         for line in lines:
 
             line = clean_line(line)
 
-            if not line:
-                continue
-
-            if is_interpretation(line):
+            if not line or is_interpretation(line):
                 continue
 
             unit = contains_unit(line)
-
             if not unit:
                 continue
 
-            # detect numeric value
-            value_match = re.search(r"\b\d+\.?\d*\b", line)
+            numbers = extract_numbers(line)
 
-            if not value_match:
+            if not numbers:
                 continue
 
-            value = float(value_match.group())
+            # First number = result value
+            value = numbers[0]
 
-            # detect reference range
-            range_match = re.search(r"(\d+\.?\d*)\s*-\s*(\d+\.?\d*)", line)
-
-            reference_range = None
+            reference_range = "N/A"
             status = "Unknown"
 
-            if range_match:
+            # If at least 3 numbers → assume value + range
+            if len(numbers) >= 3:
+                low = numbers[1]
+                high = numbers[2]
 
-                low = float(range_match.group(1))
-                high = float(range_match.group(2))
-
-                reference_range = f"{low}–{high}"
+                reference_range = f"{int(low)}–{int(high)}"
 
                 if value < low:
                     status = "Low"
@@ -90,25 +86,40 @@ def parse_medical_report(report_text):
                 else:
                     status = "Normal"
 
-            # detect test name
-            test_name = line.split(value_match.group())[0].strip()
+            # fallback: try range pattern with commas
+            else:
+                range_match = re.search(
+                    r"(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*-\s*(\d{1,3}(?:,\d{3})*(?:\.\d+)?)",
+                    line
+                )
 
-            if len(test_name) < 3:
+                if range_match:
+                    low = float(range_match.group(1).replace(",", ""))
+                    high = float(range_match.group(2).replace(",", ""))
+
+                    reference_range = f"{int(low)}–{int(high)}"
+
+                    if value < low:
+                        status = "Low"
+                    elif value > high:
+                        status = "High"
+                    else:
+                        status = "Normal"
+
+            # extract test name safely
+            test_name = line.split(str(int(value)))[0].strip()
+
+            if len(test_name) < 3 or not any(c.isalpha() for c in test_name):
                 continue
 
-            if not any(char.isalpha() for char in test_name):
-                continue
-
-            # CLEAN TEST NAME
             test_name = test_name.title().replace(",", "").strip()
 
-            # FORMAT VALUE WITH UNIT
-            formatted_value = f"{value} {unit}"
+            formatted_value = f"{int(value)} {unit}"
 
             medical_data.append({
                 "test": test_name,
                 "value": formatted_value,
-                "reference_range": reference_range if reference_range else "N/A",
+                "reference_range": reference_range,
                 "status": status
             })
 
@@ -116,12 +127,8 @@ def parse_medical_report(report_text):
 
         logger.info("Medical report parsing completed")
 
-        return {
-            "lab_results": medical_data
-        }
+        return {"lab_results": medical_data}
 
     except Exception as e:
-
         logger.error(f"Parsing error: {str(e)}")
-
         return {}

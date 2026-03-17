@@ -28,9 +28,19 @@ def report_agent(state: dict):
             return state
 
         # convert medical data to readable format
-        formatted_data = "\n".join(
-            [f"{key}: {value}" for key, value in medical_data.items()]
-        )
+        lab_results = medical_data.get("lab_results", [])
+
+        formatted_data = ""
+
+        for item in lab_results:
+            test = item.get("test", "Unknown")
+            value = item.get("value", "Unknown")
+            ref = item.get("reference_range", "Unknown")
+
+            formatted_data += f"{test}: {value} (Normal Range: {ref})\n"
+        # formatted_data = "\n".join(
+        #     [f"{key}: {value}" for key, value in medical_data.items()]
+        # )
 
         # prompt to generate only short statement
         prompt = ChatPromptTemplate.from_template(
@@ -44,6 +54,10 @@ Clearly state whether the value is:
 - within the normal range
 - above the normal range
 - below the normal range
+
+Important:
+- Use the refernec range Exactly as provided
+- Do NOT modify values
 
 Example:
 "Your HDL cholesterol is 37 mg/dL, which is below the normal range of 40–59 mg/dL."

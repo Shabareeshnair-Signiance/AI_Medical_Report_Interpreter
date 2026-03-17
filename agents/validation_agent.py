@@ -1,10 +1,10 @@
 import os
 import hashlib
 import re
-import pdfplumber
 
 from logger_config import logger
 from storage.database import check_existing_report
+from processing.pdf_reader import read_pdf   
 
 
 class ValidationAgent:
@@ -12,19 +12,19 @@ class ValidationAgent:
         self.allowed_extensions = allowed_extensions or [".pdf"]
         self.max_file_size_mb = max_file_size_mb
 
-    # Extract text from PDF
-    def extract_text(self, file_path: str) -> str:
-        try:
-            text = ""
-            with pdfplumber.open(file_path) as pdf:
-                for page in pdf.pages:
-                    text += page.extract_text() or ""
-            return text
-        except Exception as e:
-            logger.error(f"Error extracting PDF text: {e}")
-            return ""
+    # -------- TEXT NORMALIZATION --------
+    def normalize_text(self, text: str) -> str:
+        text = re.sub(r'\s+', ' ', text)  # remove extra spaces
+        text = text.replace(" - ", ": ")
+        text = text.replace("–", ":")
+        text = text.replace("—", ":")
 
-    # Extract user details from text (UPDATED)
+        # Fix broken PID like "P I D"
+        text = re.sub(r'P\s*I\s*D', 'PID', text, flags=re.IGNORECASE)
+
+        return text.strip()
+
+    # -------- EXTRACT USER DETAILS --------
     def extract_user_details(self, text: str) -> dict:
         data = {
             "user_name": None,
@@ -36,50 +36,35 @@ class ValidationAgent:
             "visit_no": None
         }
 
-        # Name patterns
-        name_patterns = [
-            r"Name[:\-]?\s*(.+)",
-            r"Patient[:\-]?\s*(.+)"
-        ]
-        for pattern in name_patterns:
+        text = self.normalize_text(text)
+
+        # -------- NAME (SMART EXTRACTION) --------
+        match = re.search(
+            r'\b([A-Z][a-z]+(?:\s[A-Z]\.)?\s[A-Z][a-z]+)\b',
+            text
+        )
+
+        if match:
+            data["user_name"] = match.group(1)
+
+        # -------- IDENTIFIERS --------
+        patterns = {
+            "reg_no": r'(?:Reg\s*No|Registration\s*No)\s*[:\-]?\s*(\w+)',
+            "lab_no": r'(?:Lab\s*No)\s*[:\-]?\s*(\w+)',
+            "pid": r'(?:PID)\s*[:\-]?\s*(\d+)',
+            "patient_id": r'(?:Patient\s*ID)\s*[:\-]?\s*(\w+)',
+            "accession_no": r'(?:Accession\s*No?)\s*[:\-]?\s*([\w\-]+)',
+            "visit_no": r'(?:Visit\s*No|Visit\s*Number)\s*[:\-]?\s*([\w\-]+)'
+        }
+
+        for key, pattern in patterns.items():
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
-                data["user_name"] = match.group(1).strip()
-                break
-
-        # Reg No
-        reg_match = re.search(r"(Reg\s*No|Registration\s*No)[:\-]?\s*(\w+)", text, re.IGNORECASE)
-        if reg_match:
-            data["reg_no"] = reg_match.group(2).strip()
-
-        # Lab No
-        lab_match = re.search(r"(Lab\s*No)[:\-]?\s*(\w+)", text, re.IGNORECASE)
-        if lab_match:
-            data["lab_no"] = lab_match.group(2).strip()
-
-        # PID (very common)
-        pid_match = re.search(r"(PID)[:\-]?\s*(\w+)", text, re.IGNORECASE)
-        if pid_match:
-            data["pid"] = pid_match.group(2).strip()
-
-        # Patient ID
-        patient_id_match = re.search(r"(Patient\s*ID)[:\-]?\s*(\w+)", text, re.IGNORECASE)
-        if patient_id_match:
-            data["patient_id"] = patient_id_match.group(2).strip()
-
-        # Accession Number
-        accession_match = re.search(r"(Accession)[:\-]?\s*(\S+)", text, re.IGNORECASE)
-        if accession_match:
-            data["accession_no"] = accession_match.group(2).strip()
-
-        # Visit Number
-        visit_match = re.search(r"(Visit\s*Number)[:\-]?\s*(\S+)", text, re.IGNORECASE)
-        if visit_match:
-            data["visit_no"] = visit_match.group(2).strip()
+                data[key] = match.group(1).strip()
 
         return data
 
-    # Generate file hash
+    # -------- HASH --------
     def generate_file_hash(self, file_path: str) -> str:
         try:
             hasher = hashlib.md5()
@@ -91,15 +76,13 @@ class ValidationAgent:
             logger.error(f"Error generating file hash: {str(e)}")
             return None
 
-    # Validate extracted data
+    # -------- VALIDATE USER --------
     def validate_user(self, data: dict) -> list:
         errors = []
 
-        # Name check
         if not data.get("user_name"):
             errors.append("User name not found in report.")
 
-        # Identifier check (ANY ONE should exist)
         identifiers = [
             data.get("reg_no"),
             data.get("lab_no"),
@@ -114,30 +97,19 @@ class ValidationAgent:
 
         return errors
 
-    # File extension check
+    # -------- FILE CHECKS --------
     def validate_extension(self, file_path: str) -> bool:
         ext = os.path.splitext(file_path)[1].lower()
-        if ext not in self.allowed_extensions:
-            logger.warning(f"Invalid file extension: {ext}")
-            return False
-        return True
+        return ext in self.allowed_extensions
 
-    # File size check
     def validate_size(self, file_path: str) -> bool:
         size_mb = os.path.getsize(file_path) / (1024 * 1024)
-        if size_mb > self.max_file_size_mb:
-            logger.warning(f"File too large: {size_mb:.2f} MB")
-            return False
-        return True
+        return size_mb <= self.max_file_size_mb
 
-    # Empty file check
     def validate_not_empty(self, file_path: str) -> bool:
-        if os.path.getsize(file_path) == 0:
-            logger.warning("File is empty")
-            return False
-        return True
+        return os.path.getsize(file_path) > 0
 
-    # Main validation pipeline
+    # -------- MAIN PIPELINE --------
     def validate(self, file_path: str) -> dict:
         logger.info("Starting validation process")
 
@@ -151,46 +123,46 @@ class ValidationAgent:
             "identifier_used": None
         }
 
-        # File validation
+        # File checks
         if not self.validate_extension(file_path):
             result["is_valid"] = False
-            result["errors"].append("Invalid file type. Only PDF allowed.")
+            result["errors"].append("Invalid file type.")
 
         if not self.validate_size(file_path):
             result["is_valid"] = False
-            result["errors"].append("File size exceeds limit.")
+            result["errors"].append("File too large.")
 
         if not self.validate_not_empty(file_path):
             result["is_valid"] = False
             result["errors"].append("File is empty.")
 
-        # Extract data
+        # -------- FIX IS HERE --------
         if result["is_valid"]:
-            text = self.extract_text(file_path)
+            text = read_pdf(file_path)   
+
+            logger.info(f"DEBUG TEXT: {text[:500]}")  
+
             extracted = self.extract_user_details(text)
             result["extracted_data"] = extracted
 
-            # Validate extracted data
             user_errors = self.validate_user(extracted)
             if user_errors:
                 result["is_valid"] = False
                 result["errors"].extend(user_errors)
 
-            # Identifier priority logic
+            # Identifier priority
             for key in ["reg_no", "lab_no", "pid", "patient_id", "accession_no", "visit_no"]:
                 if extracted.get(key):
                     result["identifier_used"] = f"{key}: {extracted.get(key)}"
                     break
 
-        # Hash and duplicate check
+        # Hash check
         if result["is_valid"]:
             file_hash = self.generate_file_hash(file_path)
             result["file_hash"] = file_hash
 
             existing = check_existing_report(file_hash)
-
             if existing:
-                logger.info("Duplicate file detected.")
                 result["is_duplicate"] = True
                 result["existing_result"] = existing
 

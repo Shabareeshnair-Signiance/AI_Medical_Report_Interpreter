@@ -1,6 +1,6 @@
 from agents.validation_agent import ValidationAgent
 
-file_path = "sample_data/Medical_report.pdf"
+file_path = "sample_data/Glucose_report.pdf"
 
 agent = ValidationAgent()
 

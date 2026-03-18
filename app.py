@@ -46,7 +46,7 @@ def index():
             logger.info(f"File uploaded: {file.filename}")
 
             # VALIDATION
-            validation_result = validator.validate(file_path, file_hash)
+            validation_result = validator.validate(file_path)
 
             if not validation_result["is_valid"]:
                 return render_template("main.html", errors=validation_result["errors"])

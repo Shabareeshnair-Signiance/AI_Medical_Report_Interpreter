@@ -5,60 +5,53 @@ from llm.llm_provider import get_llm
 from rag.retriever import search_medical_knowledge
 from logger_config import logger
 
-# only used for testing this agent
-# from processing.pdf_reader import read_pdf
-# from processing.report_parser import parse_medical_report
-# from agents.report_agent import report_agent
-
 
 def explanation_agent(state: dict):
     """
-    LangGraph node for generating patient friendly explanation
-    using report analysis and medical knowledge (RAG)
+    LangGraph node for generating explanation for ONE test only.
     """
 
     try:
         logger.info("Starting Explanation Agent")
 
-        # Getting values from graph state
-        medical_data = state.get("medical_data", {})
+        # SINGLE TEST INPUT
+        test = state.get("test", "Unknown")
+        value = state.get("value", "Unknown")
+        status = state.get("status", "Unknown")
         analysis = state.get("analysis", "")
 
-        # Converting dictionary into readable format
-        formatted_data = "\n".join(
-            [f"{key}: {value}" for key, value in medical_data.items()]
-        )
+        # RAG ONLY FOR THIS TEST
+        query = f"{test} {value}"
+        knowledge_results = search_medical_knowledge(query, test)
 
-        # Retrieving relevant medical knowledge from FAISS
-        knowledge_context = []
+        knowledge_text = "\n".join(knowledge_results)
 
-        for key, value in medical_data.items():
-            query = f"{key} {value}"
-            results = search_medical_knowledge(query, key)
-            knowledge_context.extend(results)
+        logger.info("Medical knowledge retrieved")
 
-        # Combining retrieved knowledge
-        knowledge_text = "\n".join(knowledge_context)
-
-        logger.info("Medical knowledge retrieved from FAISS")
-
-        # Initializing LLM
+        # Initialize LLM
         llm = get_llm()
 
         if llm is None:
-            logger.error("LLM initialization failed, try again...")
-            state["explanation"] = "LLM initialization failed"
-            return state
-        
-        # Prompt for patient friendly explanation
+            logger.error("LLM initialization failed")
+            return {"explanation": "LLM initialization failed"}
+
+        # STRICT PROMPT (NO MULTI-TEST)
         prompt = ChatPromptTemplate.from_template(
             """
-You are a helpful Medical AI Assistant.
+You are a helpful medical assistant.
 
-Explain the following medical report results in simple language so a normal patient can understand them.
+You will be given ONLY ONE test.
 
-Medical Report Values:
-{medical_data}
+Rules:
+- Explain ONLY this test
+- DO NOT mention any other tests
+- DO NOT add new medical parameters
+- Keep language very simple
+
+Input:
+Test: {test}
+Value: {value}
+Status: {status}
 
 Analysis:
 {analysis}
@@ -66,110 +59,35 @@ Analysis:
 Medical Knowledge:
 {knowledge}
 
-Instructions:
+Output Format:
 
-1. For each test, follow this exact format:
-
-Test Name: <name>
+Test Name: {test}
 
 What does this test measure?
-<Write a simple explanation>
+<simple explanation>
 
 Is this value normal, high, or low?
-<Clearly state status and what it means>
+<clear meaning>
 
 Why is this important for health?
-<Explain importance in simple terms>
-
---------------------------------------------------
-
-2. Rules:
-- Use very simple and clear language
-- Do NOT use symbols like ** or markdown formatting
-- Keep each question on a new line
-- Leave one blank line between sections
-- Do NOT write everything in one paragraph
-- Do NOT give diagnosis or treatment
-- Encourage consulting a doctor if abnormal
-- Keep explanation short and readable
+<short explanation>
 """
         )
 
-        # Creating modern LangChain Pipeline
         chain = prompt | llm | StrOutputParser()
 
-        logger.info("Sending explanation request to LLM")
-
         result = chain.invoke({
-            "medical_data" : formatted_data,
-            "analysis" : analysis,
-            "knowledge" : knowledge_text
+            "test": test,
+            "value": value,
+            "status": status,
+            "analysis": analysis,
+            "knowledge": knowledge_text
         })
-
-        # Storing results in graph state
-        state["explanation"] = result
 
         logger.info("Explanation Agent completed")
 
-        return state
-    
+        return {"explanation": result}
+
     except Exception as e:
         logger.error(f"Explanation Agent failed: {str(e)}")
-        state["explanation"] = "Explanation generation failed"
-        return state
-    
-
-# Testing the explanation agent whether it's working or not
-# if __name__ == "__main__":
-
-#     print("\nReading Medical Report...\n")
-#     #report_path = "sample_data/Sample Report.pdf"
-#     report_path = "sample_data/Glucose_report.pdf"
-
-#     # reading the pdf file
-#     report_text = read_pdf(report_path)
-
-#     if not report_text:
-#         print("Failed to read report")
-#         exit()
-
-#     print("Parsing Medical Report...\n")
-
-#     # Extracting the lab values from the report
-#     parsed_data = parse_medical_report(report_text)
-
-#     if not parsed_data:
-#         print("No medical values found.")
-#         exit()
-
-#     lab_results = parsed_data.get("lab_results", [])
-
-#     medical_data = {}
-
-#     # Preparing medical data dictionary
-#     for item in lab_results:
-#         test_name = item["test"]
-#         value = item["value"]
-#         unit = item["unit"]
-#         ref_range = item.get("reference_range", "unknown")
-
-#         medical_data[test_name] = f"{value} {unit} (normal range {ref_range})"
-
-#     # creating initial state for agents
-#     state = {
-#         "medical_data" : medical_data
-#     }
-#     print("\nRunning Report Agent..\n")
-
-#     # running the agent 1 to generate analysis
-#     state = report_agent(state)
-
-#     print("\nAnalysis Result:\n")
-#     print(state.get("analysis"))
-
-#     print("\nRunning Explanation Agent..\n")
-
-#     # running the explanation agent
-#     state = explanation_agent(state)
-#     print("\n---- Medical Explanation ----\n")
-#     print(state.get("explanation"))
+        return {"explanation": "Explanation generation failed"}

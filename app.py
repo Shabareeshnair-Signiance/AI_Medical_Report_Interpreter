@@ -35,6 +35,9 @@ def index():
             # READ FILE FIRST
             file_bytes = file.read()
 
+            if not file_bytes:
+                return "Empty file uploaded"
+
             # HASH BEFORE SAVING
             file_hash = generate_file_hash_from_bytes(file_bytes)
 
@@ -46,11 +49,16 @@ def index():
             logger.info(f"File uploaded: {file.filename}")
 
             # VALIDATION
-            validation_result = validator.validate(file_path)
+            validation_result = validator.validate(file_path, file_hash)
 
             if not validation_result["is_valid"]:
-                return render_template("main.html", errors=validation_result["errors"])
-
+                return render_template(
+                    "main.html",
+                    errors=validation_result["errors"],
+                    validation = validation_result
+                )
+            
+            # DUPLICATION
             if validation_result["is_duplicate"]:
                 existing = validation_result["existing_result"]
 

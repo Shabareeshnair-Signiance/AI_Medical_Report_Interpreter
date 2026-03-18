@@ -50,22 +50,20 @@ def build_medical_graph():
 def run_medical_pipeline(file_path: str):
     """
     Complete pipeline:
-    PDF -> Parser -> (if fail) -> LLM -> LangGraph Agents
+    PDF -> Parser -> (if fail) -> LLM -> Per-test LangGraph execution
     """
-    
+
     try:
         logger.info("Starting full medical pipeline")
 
-        # Reading pdf
+        # Read PDF
         text = read_pdf(file_path)
 
-        # Trying parser
+        # Try parser
         parsed_data = parse_medical_report(text)
-
-        # Hybrid fallback
         lab_results = parsed_data.get("lab_results", [])
 
-        # Check for bad parsing (missing names or weird names)
+        # Validate parser output
         bad_data = any(
             len(item.get("test", "").split()) < 2 or any(char.isdigit() for char in item.get("test", ""))
             for item in lab_results
@@ -74,17 +72,39 @@ def run_medical_pipeline(file_path: str):
         if len(lab_results) == 0 or bad_data:
             logger.warning("Parser unreliable, switching to LLM extractor")
             parsed_data = llm_extract_medical_data(text)
+            lab_results = parsed_data.get("lab_results", [])
 
-        # running the LangGraph
+        # Build graph
         graph = build_medical_graph()
 
         if graph is None:
             return {"error": "Graph not built"}
-        
-        result = graph.invoke(parsed_data)
+
+        # LOOP PER TEST
+        final_output = []
+
+        for test in lab_results:
+
+            state = {
+                "test": test.get("test", "Unknown"),
+                "value": test.get("value", "Unknown"),
+                "reference_range": test.get("reference_range", "Unknown"),
+                "status": test.get("status", "Unknown")
+            }
+
+            result = graph.invoke(state)
+
+            final_output.append({
+                "test": state["test"],
+                "analysis": result.get("analysis", ""),
+                "explanation": result.get("explanation", ""),
+                "guidance": result.get("guidance", "")
+            })
+
         logger.info("Pipeline execution completed")
-        return result
-    
+
+        return {"results": final_output}
+
     except Exception as e:
         logger.error(f"Pipeline error: {str(e)}")
         return {"error": str(e)}
@@ -93,6 +113,25 @@ def run_medical_pipeline(file_path: str):
 if __name__ == "__main__":
 
     file_path = "sample_data/sample_blood_report.pdf"
+
     result = run_medical_pipeline(file_path)
+
     print("\n--- Final Output ---\n")
-    print(result)
+
+    if "results" in result:
+        for item in result["results"]:
+            print(f"\n===== {item['test']} =====\n")
+
+            print("Analysis:")
+            print(item["analysis"])
+
+            print("\nExplanation:")
+            print(item["explanation"])
+
+            print("\nGuidance:")
+            print(item["guidance"])
+
+            print("\n" + "-" * 50)
+
+    else:
+        print(result)

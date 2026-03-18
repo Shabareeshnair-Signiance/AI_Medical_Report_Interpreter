@@ -4,160 +4,64 @@ from langchain_core.output_parsers import StrOutputParser
 from llm.llm_provider import get_llm
 from logger_config import logger
 
-# used only for testing
-# from processing.pdf_reader import read_pdf
-# from processing.report_parser import parse_medical_report
-# from rag.retriever import search_medical_knowledge
-
 
 def report_agent(state: dict):
     """
-    LangGraph node for generating short medical result summary.
+    LangGraph node for generating analysis for ONE test only.
     """
 
     try:
-
         logger.info("Running Report Agent")
 
-        medical_data = state.get("medical_data", {})
         llm = get_llm()
 
         if llm is None:
             logger.error("LLM initialization failed")
-            state["analysis"] = "LLM initialization failed"
-            return state
+            return {"analysis": "LLM initialization failed"}
 
-        # convert medical data to readable format
-        lab_results = medical_data.get("lab_results", [])
+        # ONLY SINGLE TEST DATA
+        test = state.get("test", "Unknown")
+        value = state.get("value", "Unknown")
+        ref = state.get("reference_range", "Unknown")
+        status = state.get("status", "Unknown")
 
-        formatted_data = ""
-
-        for item in lab_results:
-            test = item.get("test", "Unknown")
-            value = item.get("value", "Unknown")
-            ref = item.get("reference_range", "Unknown")
-
-            formatted_data += f"{test}: {value} (Normal Range: {ref})\n"
-        # formatted_data = "\n".join(
-        #     [f"{key}: {value}" for key, value in medical_data.items()]
-        # )
-
-        # prompt to generate only short statement
+        # HARD CONSTRAINT PROMPT
         prompt = ChatPromptTemplate.from_template(
             """
-You are a medical AI assistant.
+You are a strict medical analysis assistant.
 
-Given the following medical result, generate ONLY one short statement
-summarizing the value compared to the normal range.
-
-Clearly state whether the value is:
-- within the normal range
-- above the normal range
-- below the normal range
-
-Important:
-- Use the refernec range Exactly as provided
-- Do NOT modify values
-
-Example:
-"Your HDL cholesterol is 37 mg/dL, which is below the normal range of 40–59 mg/dL."
-
-Medical Result:
-{medical_data}
+You will be given ONLY ONE medical test.
 
 Rules:
-- Produce only ONE short statement
-- Do not provide explanations
-- Do not add extra text
+- Analyze ONLY this test
+- DO NOT mention any other tests
+- DO NOT add new medical terms
+- DO NOT assume missing values
+
+Input:
+Test: {test}
+Value: {value}
+Reference Range: {reference_range}
+Status: {status}
+
+Output:
+Write ONE short sentence comparing value with reference range.
 """
         )
 
-        # create chain
         chain = prompt | llm | StrOutputParser()
 
         result = chain.invoke({
-            "medical_data": formatted_data
+            "test": test,
+            "value": value,
+            "reference_range": ref,
+            "status": status
         })
-
-        state["analysis"] = result
 
         logger.info("Report Agent completed")
 
-        return state
+        return {"analysis": result}
 
     except Exception as e:
-
         logger.error(f"Report Agent Error: {str(e)}")
-
-        state["analysis"] = "Analysis failed"
-
-        return state
-
-
-# Testing the agent using Sample Report
-
-# if __name__ == "__main__":
-
-#     report_path = "sample_data/sample_medical_report_text.pdf"
-#     #report_path = "sample_data/Sample Report.pdf"
-
-#     print("\nReading Medical Report...\n")
-
-#     # read pdf
-#     report_text = read_pdf(report_path)
-
-#     if not report_text:
-#         print("Failed to read report")
-#         exit()
-
-#     print("Parsing report...\n")
-
-#     # parse medical values
-#     parsed_data = parse_medical_report(report_text)
-
-#     if not parsed_data:
-#         print("No medical values found")
-#         exit()
-
-#     lab_results = parsed_data.get("lab_results", [])
-
-#     medical_data = {}
-
-#     # prepare medical data with value + reference range
-#     for item in lab_results:
-
-#         test_name = item["test"]
-#         value = item["value"]
-#         unit = item["unit"]
-#         ref_range = item.get("reference_range", "unknown")
-
-#         medical_data[test_name] = f"{value} {unit} (normal range {ref_range})"
-
-#     # retrieve knowledge (for later agents)
-#     knowledge_context = []
-
-#     for item in lab_results:
-
-#         test_name = item["test"]
-#         value = item["value"]
-#         unit = item["unit"]
-
-#         query = f"{test_name} {value} {unit}"
-
-#         results = search_medical_knowledge(query, test_name)
-
-#         knowledge_context.extend(results)
-
-#     # create LangGraph state
-#     state = {
-#         "medical_data": medical_data,
-#         "knowledge": knowledge_context
-#     }
-
-#     print("\nRunning Report Analysis Agent...\n")
-
-#     output_state = report_agent(state)
-
-#     print("\n===== Analysis Result =====\n")
-
-#     print(output_state["analysis"])
+        return {"analysis": "Analysis failed"}

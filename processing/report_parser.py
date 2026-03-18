@@ -5,7 +5,14 @@ from logger_config import logger
 UNITS = [
     "mg/dL","g/dL","mmol/L","IU/L","U/L",
     "cells/mcL","/mcL","/µL","/uL","%","ng/mL",
-    "pg/mL","mEq/L","µg/dL","/cumm"
+    "pg/mL","mEq/L","µg/dL","/cumm", "µIU/mL", "uIU/mL"
+]
+
+# Non-test keywords (STRICT FILTER)
+NON_TEST_KEYWORDS = [
+    "age", "gender", "lab no", "registration", "reg no",
+    "patient", "doctor", "hospital", "report", "date",
+    "collection", "visit", "id", "number"
 ]
 
 IGNORE_WORDS = [
@@ -32,6 +39,21 @@ def is_interpretation(line):
     return any(word in line.lower() for word in IGNORE_WORDS)
 
 
+def is_valid_test(line):
+    """
+    Strict filter to allow only real medical test lines
+    """
+    line_lower = line.lower()
+
+    # reject non-test fields
+    if any(word in line_lower for word in NON_TEST_KEYWORDS):
+        return False
+
+    # must contain at least one number (value)
+    if not re.search(r"\d", line):
+        return False
+    return True
+
 # -------- HELPER --------
 def extract_numbers(text):
     """
@@ -54,17 +76,32 @@ def parse_medical_report(report_text):
         logger.info("Starting medical report parsing")
 
         medical_data = []
-        #lines = report_text.split("\n")
 
-        # Merge broken lines (important for multi-page and tables)
-        #report_text = report_text.replace("\n", " ")
-        chunks = re.split(r'\n+', report_text)
+        # keep line structure (important)
+        raw_lines = re.split(r'\n+', report_text)
 
-        for chunk in chunks:
+        lines = []
+        buffer = ""
 
-            line = clean_line(chunk)
+        # Step 1: merge lines
+        for line in raw_lines:
+            line = clean_line(line)
 
-            if not line or is_interpretation(line):
+            if not line:
+                continue
+
+            if re.search(r'\d', line):
+                buffer += " " + line
+                lines.append(buffer.strip())
+                buffer = ""
+            else:
+                buffer = line
+
+
+        # Step 2: parse merged lines
+        for line in lines:
+
+            if not is_valid_test(line):
                 continue
 
             numbers = extract_numbers(line)
@@ -72,24 +109,21 @@ def parse_medical_report(report_text):
                 continue
 
             unit = detect_unit(line)
-
-            # First number = result value
             value = numbers[0]
 
             reference_range = "N/A"
             status = "Unknown"
 
-            # range detection
             range_match = re.search(
-                r"(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*[-–]\s*(\d{1,3}(?:,\d{3})*(?:\.\d+)?)",
+                r"(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)",
                 line
             )
 
             if range_match:
-                low = float(range_match.group(1).replace(",", ""))
-                high = float(range_match.group(2).replace(",", ""))
+                low = float(range_match.group(1))
+                high = float(range_match.group(2))
 
-                reference_range = f"{int(low)}-{int(high)}"
+                reference_range = f"{low}-{high}"
 
                 if value < low:
                     status = "Low"
@@ -98,12 +132,11 @@ def parse_medical_report(report_text):
                 else:
                     status = "Normal"
 
-            # If at least 3 numbers → assume value + range
             elif len(numbers) >= 3:
                 low = numbers[1]
                 high = numbers[2]
 
-                reference_range = f"{int(low)}–{int(high)}"
+                reference_range = f"{low}-{high}"
 
                 if value < low:
                     status = "Low"
@@ -112,32 +145,11 @@ def parse_medical_report(report_text):
                 else:
                     status = "Normal"
 
-            # fallback: try range pattern with commas
-            else:
-                range_match = re.search(
-                    r"(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*-\s*(\d{1,3}(?:,\d{3})*(?:\.\d+)?)",
-                    line
-                )
-
-                if range_match:
-                    low = float(range_match.group(1).replace(",", ""))
-                    high = float(range_match.group(2).replace(",", ""))
-
-                    reference_range = f"{int(low)}–{int(high)}"
-
-                    if value < low:
-                        status = "Low"
-                    elif value > high:
-                        status = "High"
-                    else:
-                        status = "Normal"
-
-            # extract test name match safely
-            test_name = re.split(r'\d', line)[0].strip()
-
-            if len(test_name) < 3:
+            test_name_match = re.match(r"([A-Za-z\s\(\)]+)", line)
+            if not test_name_match:
                 continue
 
+            test_name = test_name_match.group(1).strip()
             test_name = test_name.title().replace(",", "").strip()
 
             formatted_value = f"{value} {unit}".strip()
@@ -158,3 +170,23 @@ def parse_medical_report(report_text):
     except Exception as e:
         logger.error(f"Parsing error: {str(e)}")
         return {}
+    
+# For testing the report parser
+from processing.pdf_reader import read_pdf
+
+if __name__ == "__main__":
+
+    file_path = "sample_data/Glucose_report.pdf"
+
+    # Read PDF
+    extracted_text = read_pdf(file_path)
+
+    print("\n=== EXTRACTED TEXT ===\n")
+    print(extracted_text[:1000])
+
+    # Directly call function (no import needed)
+    result = parse_medical_report(extracted_text)
+
+    print("\n=== PARSED OUTPUT ===\n")
+    for item in result["lab_results"]:
+        print(item)

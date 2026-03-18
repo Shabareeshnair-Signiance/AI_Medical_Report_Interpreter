@@ -4,6 +4,10 @@ from agents.report_agent import report_agent
 from agents.explanation_agent import explanation_agent
 from agents.guidance_agent import guidance_agent
 
+from processing.report_parser import parse_medical_report
+from processing.llm_extractor import llm_extract_medical_data
+from processing.pdf_reader import read_pdf
+
 from logger_config import logger
 
 
@@ -42,48 +46,53 @@ def build_medical_graph():
         logger.error(f"Error building LangGraph: {str(e)}")
         return None
     
+# Hybrid Pipeline function
+def run_medical_pipeline(file_path: str):
+    """
+    Complete pipeline:
+    PDF -> Parser -> (if fail) -> LLM -> LangGraph Agents
+    """
+    
+    try:
+        logger.info("Starting full medical pipeline")
+
+        # Reading pdf
+        text = read_pdf(file_path)
+
+        # Trying parser
+        parsed_data = parse_medical_report(text)
+
+        # Hybrid fallback
+        lab_results = parsed_data.get("lab_results", [])
+
+        # Check for bad parsing (missing names or weird names)
+        bad_data = any(
+            len(item.get("test", "").split()) < 2 or any(char.isdigit() for char in item.get("test", ""))
+            for item in lab_results
+        )
+
+        if len(lab_results) == 0 or bad_data:
+            logger.warning("Parser unreliable, switching to LLM extractor")
+            parsed_data = llm_extract_medical_data(text)
+
+        # running the LangGraph
+        graph = build_medical_graph()
+
+        if graph is None:
+            return {"error": "Graph not built"}
+        
+        result = graph.invoke(parsed_data)
+        logger.info("Pipeline execution completed")
+        return result
+    
+    except Exception as e:
+        logger.error(f"Pipeline error: {str(e)}")
+        return {"error": str(e)}
 
 # testing the entire agent with sample report
-# if __name__ == "__main__":
+if __name__ == "__main__":
 
-#     from processing.pdf_reader import read_pdf
-#     from processing.report_parser import parse_medical_report
-
-#     print("\nStarting Medical Report AI Test...\n")
-
-#     # loading langGraph
-#     graph = build_medical_graph()
-
-#     # sample report path
-#     #sample_pdf = "data/uploads/Sample Report.pdf"
-#     sample_pdf = "data/uploads/Glucose_report.pdf"
-
-#     print("Reading PDF File...\n")
-
-#     # reading pdf
-#     report_text = read_pdf(sample_pdf)
-#     print("Parsing report values..\n")
-
-#     # extracting medical values
-#     medical_data = parse_medical_report(report_text)
-#     print("Running LangGraph Agents..\n")
-
-#     # initialising the state
-#     state = {
-#         "medical_data" : medical_data
-#     }
-
-#     # running the graph
-#     result = graph.invoke(state)
-
-#     print("\n-------- Final Output -------\n")
-#     print("Medical Data:\n", result["medical_data"])
-
-#     print("\nReport Analysis:\n")
-#     print(result["analysis"])
-
-#     print("\nExplanation:\n")
-#     print(result["explanation"])
-
-#     print("\nHealth Guidance:\n")
-#     print(result["guidance"])
+    file_path = "sample_data/sample_blood_report.pdf"
+    result = run_medical_pipeline(file_path)
+    print("\n--- Final Output ---\n")
+    print(result)

@@ -21,11 +21,11 @@ def clean_line(line):
     return line.strip()
 
 
-def contains_unit(line):
-    for unit in UNITS:
-        if unit.lower() in line.lower():
-            return unit
-    return None
+# def contains_unit(line):
+#     for unit in UNITS:
+#         if unit.lower() in line.lower():
+#             return unit
+#     return None
 
 
 def is_interpretation(line):
@@ -40,6 +40,12 @@ def extract_numbers(text):
     nums = re.findall(r"\d{1,3}(?:,\d{3})*(?:\.\d+)?", text)
     return [float(n.replace(",", "")) for n in nums]
 
+def detect_unit(text):
+    for unit in UNITS:
+        if unit.lower() in text.lower():
+            return unit
+    return ""
+
 
 # -------- MAIN PARSER --------
 def parse_medical_report(report_text):
@@ -48,23 +54,24 @@ def parse_medical_report(report_text):
         logger.info("Starting medical report parsing")
 
         medical_data = []
-        lines = report_text.split("\n")
+        #lines = report_text.split("\n")
 
-        for line in lines:
+        # Merge broken lines (important for multi-page and tables)
+        #report_text = report_text.replace("\n", " ")
+        chunks = re.split(r'\n+', report_text)
 
-            line = clean_line(line)
+        for chunk in chunks:
+
+            line = clean_line(chunk)
 
             if not line or is_interpretation(line):
                 continue
 
-            unit = contains_unit(line)
-            if not unit:
-                continue
-
             numbers = extract_numbers(line)
-
             if not numbers:
                 continue
+
+            unit = detect_unit(line)
 
             # First number = result value
             value = numbers[0]
@@ -72,8 +79,27 @@ def parse_medical_report(report_text):
             reference_range = "N/A"
             status = "Unknown"
 
+            # range detection
+            range_match = re.search(
+                r"(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*[-–]\s*(\d{1,3}(?:,\d{3})*(?:\.\d+)?)",
+                line
+            )
+
+            if range_match:
+                low = float(range_match.group(1).replace(",", ""))
+                high = float(range_match.group(2).replace(",", ""))
+
+                reference_range = f"{int(low)}-{int(high)}"
+
+                if value < low:
+                    status = "Low"
+                elif value > high:
+                    status = "High"
+                else:
+                    status = "Normal"
+
             # If at least 3 numbers → assume value + range
-            if len(numbers) >= 3:
+            elif len(numbers) >= 3:
                 low = numbers[1]
                 high = numbers[2]
 
@@ -106,15 +132,15 @@ def parse_medical_report(report_text):
                     else:
                         status = "Normal"
 
-            # extract test name safely
-            test_name = line.split(str(int(value)))[0].strip()
+            # extract test name match safely
+            test_name = re.split(r'\d', line)[0].strip()
 
-            if len(test_name) < 3 or not any(c.isalpha() for c in test_name):
+            if len(test_name) < 3:
                 continue
 
             test_name = test_name.title().replace(",", "").strip()
 
-            formatted_value = f"{int(value)} {unit}"
+            formatted_value = f"{value} {unit}".strip()
 
             medical_data.append({
                 "test": test_name,

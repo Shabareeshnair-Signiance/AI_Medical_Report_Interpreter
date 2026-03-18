@@ -1,24 +1,16 @@
 import re
 from logger_config import logger
 
-# extended medical units
 UNITS = [
     "mg/dL","g/dL","mmol/L","IU/L","U/L",
     "cells/mcL","/mcL","/µL","/uL","%","ng/mL",
     "pg/mL","mEq/L","µg/dL","/cumm", "µIU/mL", "uIU/mL"
 ]
 
-# Non-test keywords (STRICT FILTER)
 NON_TEST_KEYWORDS = [
     "age", "gender", "lab no", "registration", "reg no",
     "patient", "doctor", "hospital", "report", "date",
     "collection", "visit", "id", "number"
-]
-
-IGNORE_WORDS = [
-    "less than","greater than","risk","information","performed",
-    "page","accession","doctor","patient","report","address",
-    "hospital","printed","date","collection","visit"
 ]
 
 
@@ -28,39 +20,22 @@ def clean_line(line):
     return line.strip()
 
 
-# def contains_unit(line):
-#     for unit in UNITS:
-#         if unit.lower() in line.lower():
-#             return unit
-#     return None
-
-
-def is_interpretation(line):
-    return any(word in line.lower() for word in IGNORE_WORDS)
-
-
 def is_valid_test(line):
-    """
-    Strict filter to allow only real medical test lines
-    """
     line_lower = line.lower()
 
-    # reject non-test fields
     if any(word in line_lower for word in NON_TEST_KEYWORDS):
         return False
 
-    # must contain at least one number (value)
     if not re.search(r"\d", line):
         return False
+
     return True
 
-# -------- HELPER --------
+
 def extract_numbers(text):
-    """
-    Extract numbers including comma values like 150,000
-    """
-    nums = re.findall(r"\d{1,3}(?:,\d{3})*(?:\.\d+)?", text)
+    nums = re.findall(r"\d+(?:,\d{3})*(?:\.\d+)?", text)
     return [float(n.replace(",", "")) for n in nums]
+
 
 def detect_unit(text):
     for unit in UNITS:
@@ -69,7 +44,6 @@ def detect_unit(text):
     return ""
 
 
-# -------- MAIN PARSER --------
 def parse_medical_report(report_text):
 
     try:
@@ -77,29 +51,14 @@ def parse_medical_report(report_text):
 
         medical_data = []
 
-        # keep line structure (important)
-        raw_lines = re.split(r'\n+', report_text)
+        lines = re.split(r'\n+', report_text)
 
-        lines = []
-        buffer = ""
+        for line in lines:
 
-        # Step 1: merge lines
-        for line in raw_lines:
             line = clean_line(line)
 
             if not line:
                 continue
-
-            if re.search(r'\d', line):
-                buffer += " " + line
-                lines.append(buffer.strip())
-                buffer = ""
-            else:
-                buffer = line
-
-
-        # Step 2: parse merged lines
-        for line in lines:
 
             if not is_valid_test(line):
                 continue
@@ -114,6 +73,7 @@ def parse_medical_report(report_text):
             reference_range = "N/A"
             status = "Unknown"
 
+            # range detection
             range_match = re.search(
                 r"(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)",
                 line
@@ -145,7 +105,8 @@ def parse_medical_report(report_text):
                 else:
                     status = "Normal"
 
-            test_name_match = re.match(r"([A-Za-z\s\(\)]+)", line)
+            # improved test name extraction
+            test_name_match = re.match(r"([A-Za-z0-9\s\(\)\-]+)", line)
             if not test_name_match:
                 continue
 
@@ -170,23 +131,22 @@ def parse_medical_report(report_text):
     except Exception as e:
         logger.error(f"Parsing error: {str(e)}")
         return {}
-    
-# For testing the report parser
-from processing.pdf_reader import read_pdf
 
-if __name__ == "__main__":
 
-    file_path = "sample_data/Glucose_report.pdf"
+# ---------------- TEST ----------------
+# from processing.pdf_reader import read_pdf
 
-    # Read PDF
-    extracted_text = read_pdf(file_path)
+# if __name__ == "__main__":
 
-    print("\n=== EXTRACTED TEXT ===\n")
-    print(extracted_text[:1000])
+#     file_path = "sample_data/Glucose_report.pdf"
 
-    # Directly call function (no import needed)
-    result = parse_medical_report(extracted_text)
+#     extracted_text = read_pdf(file_path)
 
-    print("\n=== PARSED OUTPUT ===\n")
-    for item in result["lab_results"]:
-        print(item)
+#     print("\n=== EXTRACTED TEXT ===\n")
+#     print(extracted_text[:1000])
+
+#     result = parse_medical_report(extracted_text)
+
+#     print("\n=== PARSED OUTPUT ===\n")
+#     for item in result["lab_results"]:
+#         print(item)

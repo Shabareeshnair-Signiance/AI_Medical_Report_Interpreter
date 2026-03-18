@@ -36,14 +36,23 @@ class ValidationAgent:
 
         text = self.normalize_text(text)
 
-        match = re.search(r'\b([A-Z][a-z]+\s[A-Z][a-z]+)\b', text)
+        # FIXED NAME REGEX (handles middle initial)
+        match = re.search(
+            r'\b([A-Z][a-z]+(?:\s[A-Z]\.)?\s[A-Z][a-z]+)\b',
+            text
+        )
+
         if match:
             data["user_name"] = match.group(1)
 
+        # -------- IDENTIFIERS --------
         patterns = {
             "reg_no": r'(?:Reg\s*No|Registration\s*No)\s*[:\-]?\s*(\w+)',
             "lab_no": r'(?:Lab\s*No)\s*[:\-]?\s*(\w+)',
-            "pid": r'(?:PID)\s*[:\-]?\s*(\d+)'
+            "pid": r'(?:PID)\s*[:\-]?\s*(\d+)',
+            "patient_id": r'(?:Patient\s*ID)\s*[:\-]?\s*(\w+)',
+            "accession_no": r'(?:Accession\s*No?)\s*[:\-]?\s*([\w\-]+)',
+            "visit_no": r'(?:Visit\s*No|Visit\s*Number)\s*[:\-]?\s*([\w\-]+)'
         }
 
         for key, pattern in patterns.items():
@@ -109,17 +118,11 @@ class ValidationAgent:
             file_hash = self.generate_file_hash(file_path)
             result["file_hash"] = file_hash
 
-            # DEBUG (keep temporarily)
-            print("HASH:", file_hash)
-
             existing = check_existing_report(file_hash)
 
             if existing:
-                print("DUPLICATE FOUND")
                 result["is_duplicate"] = True
                 result["existing_result"] = existing
-            else:
-                print("NEW FILE")
 
         logger.info(f"Validation result: {result}")
 

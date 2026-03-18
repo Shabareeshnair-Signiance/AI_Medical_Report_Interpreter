@@ -78,7 +78,7 @@ class ValidationAgent:
             return None
 
     # -------- MAIN VALIDATION --------
-    def validate(self, file_path: str) -> dict:
+    def validate(self, file_path: str, file_hash: str = None) -> dict:
 
         logger.info("Starting validation process")
 
@@ -109,13 +109,37 @@ class ValidationAgent:
             extracted = self.extract_user_details(text)
             result["extracted_data"] = extracted
 
+            # -------- USER VALIDATION --------
             if not extracted.get("user_name"):
                 result["errors"].append("User name not found in report.")
+
+            identifiers = [
+                extracted.get("reg_no"),
+                extracted.get("lab_no"),
+                extracted.get("pid"),
+                extracted.get("patient_id"),
+                extracted.get("accession_no"),
+                extracted.get("visit_no"),
+            ]
+
+            if not any(identifiers):
+                result["errors"].append("No valid identifier found (Reg No / PID / etc).")
+
+            # Identifier Set
+            for key in ["reg_no", "lab_no", "pid", "patient_id", "accession_no", "visit_no"]:
+                if extracted.get(key):
+                    result["identifier_used"] = f"{key}: {extracted.get(key)}"
+                    break
+
+            if result["errors"]:
+                result["is_valid"] = False
 
         # -------- HASH AND DUPLICATE CHECK --------
         if result["is_valid"]:
 
-            file_hash = self.generate_file_hash(file_path)
+            if not file_hash:
+                file_hash = self.generate_file_hash(file_path)
+                
             result["file_hash"] = file_hash
 
             existing = check_existing_report(file_hash)

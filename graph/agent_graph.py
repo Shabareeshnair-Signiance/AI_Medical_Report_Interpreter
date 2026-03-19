@@ -100,21 +100,21 @@ def run_medical_pipeline(file_path: str):
         return {"error": str(e)}
 
 # testing the entire agent with sample report
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    file_path = "sample_data/sample_blood_report.pdf"
+#     file_path = "sample_data/sample_blood_report.pdf"
 
-    result = run_medical_pipeline(file_path)
+#     result = run_medical_pipeline(file_path)
 
-    print("\n--- Final Output ---\n")
+#     print("\n--- Final Output ---\n")
 
-    print("\n=== ANALYSIS ===\n")
-    print(result.get("analysis", ""))
+#     print("\n=== ANALYSIS ===\n")
+#     print(result.get("analysis", ""))
 
-    print("\n=== EXPLANATION ===\n")
-    print(result.get("explanation", ""))
+#     print("\n=== EXPLANATION ===\n")
+#     print(result.get("explanation", ""))
 
-    print("\n=== GUIDANCE ===\n")
-    print(result.get("guidance", ""))
+#     print("\n=== GUIDANCE ===\n")
+#     print(result.get("guidance", ""))
 
-    print("\n" + "-" * 50)
+#     print("\n" + "-" * 50)

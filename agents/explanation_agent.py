@@ -33,7 +33,8 @@ def explanation_agent(state: dict):
 
         if llm is None:
             logger.error("LLM initialization failed")
-            return {"explanation": "LLM initialization failed"}
+            state["explanation"] = "Explanation generation failed"
+            return state
 
         # STRICT PROMPT (NO MULTI-TEST)
         prompt = ChatPromptTemplate.from_template(
@@ -83,11 +84,14 @@ Why is this important for health?
             "analysis": analysis,
             "knowledge": knowledge_text
         })
+        print("EXPLANATION RESULT:", result)
 
         logger.info("Explanation Agent completed")
 
-        return {"explanation": result}
+        state["explanation"] = result
+        return state
 
     except Exception as e:
         logger.error(f"Explanation Agent failed: {str(e)}")
-        return {"explanation": "Explanation generation failed"}
+        state["explanation"] = "LLM initialization failed"
+        return state

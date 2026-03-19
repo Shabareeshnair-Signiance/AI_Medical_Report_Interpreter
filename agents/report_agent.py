@@ -17,13 +17,19 @@ def report_agent(state: dict):
 
         if llm is None:
             logger.error("LLM initialization failed")
-            return {"analysis": "LLM initialization failed"}
+            state["analysis"] = ""
+            return state
 
         # ONLY SINGLE TEST DATA
-        test = state.get("test", "Unknown")
-        value = state.get("value", "Unknown")
-        ref = state.get("reference_range", "Unknown")
-        status = state.get("status", "Unknown")
+        test = state.get("test")
+        value = state.get("value")
+        ref = state.get("reference_range")
+        status = state.get("status")
+
+        if not test or not value:
+            logger.error("Missing test data")
+            state["analysis"] = ""
+            return state
 
         # HARD CONSTRAINT PROMPT
         prompt = ChatPromptTemplate.from_template(
@@ -32,8 +38,12 @@ You are a strict medical analysis assistant.
 
 You will be given ONLY ONE medical test.
 
+Your job is to ALWAYS generate ONE clear Sentence.
+
 Rules:
-- Analyze ONLY this test
+- You MUST generate output (do not return empty)
+- Use the given value and reference range
+- Clearly state if it is Low, Normal, or High
 - DO NOT mention any other tests
 - DO NOT add new medical terms
 - DO NOT assume missing values
@@ -44,8 +54,10 @@ Value: {value}
 Reference Range: {reference_range}
 Status: {status}
 
-Output:
-Write ONE short sentence comparing value with reference range.
+Output Example:
+"Your hemoglobin is 11.2 g/dL, which is below the normal range of 13.0 - 17.0 g/dL."
+
+Now generate the output:
 """
         )
 
@@ -54,14 +66,16 @@ Write ONE short sentence comparing value with reference range.
         result = chain.invoke({
             "test": test,
             "value": value,
-            "reference_range": ref,
-            "status": status
+            "reference_range": ref or "Unknown",
+            "status": status or "Unknown"
         })
-        #print("REPORT RESULT:", result)
+        
+        if not result or result.strip() == "":
+            result = f"{test} value {value} is {status} compared to reference range {ref}."
 
         logger.info("Report Agent completed")
 
-        state["analysis"] = result
+        state["analysis"] = result if result else ""
         return state
 
     except Exception as e:

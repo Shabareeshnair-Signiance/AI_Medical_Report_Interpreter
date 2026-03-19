@@ -119,7 +119,7 @@ def run_medical_pipeline(file_path: str):
 # testing the entire agent with sample report
 if __name__ == "__main__":
 
-    file_path = "sample_data/Glucose_report.pdf"
+    file_path = "sample_data/sample_blood_report.pdf"
 
     result = run_medical_pipeline(file_path)
 

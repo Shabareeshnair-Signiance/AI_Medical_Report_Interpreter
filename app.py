@@ -3,6 +3,7 @@ from flask import Flask, render_template, request
 
 from agents.validation_agent import ValidationAgent
 from processing.pdf_reader import read_pdf
+from processing.llm_extractor import llm_extract_medical_data
 from processing.report_parser import parse_medical_report
 from graph.agent_graph import build_medical_graph
 from storage.database import init_database, save_report, generate_file_hash_from_bytes
@@ -73,10 +74,28 @@ def index():
 
             # PROCESSING
             report_text = read_pdf(file_path)
-            medical_data = parse_medical_report(report_text)
+
+            # Trying Regex pattern
+            parsed_data = parse_medical_report(report_text)
+            lab_results = parsed_data.get("lab_results", [])
+
+            # Checking if parser failed or not
+            bad_parsing = any(
+                any(char.isdigit() for char in item.get("test", ""))
+                for item in lab_results
+            )
+            missing_data = not lab_results
+
+            # Fallback to LLM
+            if missing_data or bad_parsing:
+                logger.warning("Parser unreliable, switching to LLM extractor")
+                parsed_data = llm_extract_medical_data(report_text)
+
+            # Final data
+            medical_data = parsed_data
 
             state = {
-                "medical_data": medical_data
+                "lab_results": medical_data.get("lab_results", [])
             }
 
             result = graph.invoke(state)

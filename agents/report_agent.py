@@ -26,6 +26,7 @@ def report_agent(state: dict):
         if not lab_results:
             logger.error("No lab results found")
             state["analysis"] = "No lab data available"
+            state["lab_results"] = []
             return state
 
         # Doctor-Focused Prompt
@@ -129,6 +130,7 @@ ONLY return this format. No JSON. No extra explanation.
             result = "Analysis could not be generated."
 
         state["analysis"] = result.strip()
+        state["lab_results"] = lab_results
 
         logger.info("Report Agent Completed")
         return state

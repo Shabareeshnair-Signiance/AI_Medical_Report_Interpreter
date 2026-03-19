@@ -80,37 +80,20 @@ def run_medical_pipeline(file_path: str):
         if graph is None:
             return {"error": "Graph not built"}
 
-        # LOOP PER TEST
-        final_output = []
+        # Single state full report
+        state = {
+            "lab_results": lab_results
+        }
 
-        for test in lab_results:
-
-            # ORIGINAL SAFE STATE (DO NOT OVERWRITE)
-            state = {
-                "test": test.get("test", "Unknown"),
-                "value": test.get("value", "Unknown"),
-                "reference_range": test.get("reference_range", "Unknown"),
-                "status": test.get("status", "Unknown")
-            }
-
-            result = graph.invoke(state)
-            print("\nDEBUG RESULT:", result)
-
-            # SAFETY CHECK
-            if not isinstance(result, dict):
-                result = {}
-
-            # NEVER TRUST GRAPH FOR TEST NAME
-            final_output.append({
-                "test": state.get("test", "Unknown"), 
-                "analysis": result.get("analysis", ""),
-                "explanation": result.get("explanation", ""),
-                "guidance": result.get("guidance", "")
-            })
+        result = graph.invoke(state)
 
         logger.info("Pipeline execution completed")
 
-        return {"results": final_output}
+        return {
+            "analysis": result.get("analysis", ""),
+            "explanation": result.get("explanation", ""),
+            "guidance": result.get("guidance", "")
+        }
 
     except Exception as e:
         logger.error(f"Pipeline error: {str(e)}")
@@ -125,20 +108,13 @@ if __name__ == "__main__":
 
     print("\n--- Final Output ---\n")
 
-    if "results" in result:
-        for item in result["results"]:
-            print(f"\n===== {item['test']} =====\n")
+    print("\n=== ANALYSIS ===\n")
+    print(result.get("analysis", ""))
 
-            print("Analysis:")
-            print(item["analysis"])
+    print("\n=== EXPLANATION ===\n")
+    print(result.get("explanation", ""))
 
-            print("\nExplanation:")
-            print(item["explanation"])
+    print("\n=== GUIDANCE ===\n")
+    print(result.get("guidance", ""))
 
-            print("\nGuidance:")
-            print(item["guidance"])
-
-            print("\n" + "-" * 50)
-
-    else:
-        print(result)
+    print("\n" + "-" * 50)

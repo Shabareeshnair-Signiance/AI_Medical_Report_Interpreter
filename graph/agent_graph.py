@@ -94,6 +94,7 @@ def run_medical_pipeline(file_path: str):
             }
 
             result = graph.invoke(state)
+            print("\nDEBUG RESULT:", result)
 
             # SAFETY CHECK
             if not isinstance(result, dict):

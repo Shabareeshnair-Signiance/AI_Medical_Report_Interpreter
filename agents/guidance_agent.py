@@ -68,8 +68,8 @@ Safety:
         })
 
         logger.info("Health Guidance Agent completed")
-
-        return {"guidance": result}
+        state["guidance"] = result
+        return state
 
     except Exception as e:
         logger.error(f"Guidance Agent failed: {str(e)}")

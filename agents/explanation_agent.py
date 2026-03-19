@@ -28,11 +28,11 @@ def explanation_agent(state: dict):
         analysis = analysis or "No analysis available"
 
         # RAG ONLY FOR THIS TEST
-        query = f"{test} {value}"
-        knowledge_results = search_medical_knowledge(query, test)
-        knowledge_text = "\n".join(knowledge_results)
+        # query = f"{test} {value}"
+        # knowledge_results = search_medical_knowledge(query, test)
+        # knowledge_text = "\n".join(knowledge_results)
 
-        logger.info("Medical knowledge retrieved")
+        # logger.info("Medical knowledge retrieved")
 
         # Initialize LLM
         llm = get_llm()

@@ -94,6 +94,8 @@ def run_medical_pipeline(file_path: str):
 
             result = graph.invoke(state)
 
+            state = result
+
             final_output.append({
                 "test": state["test"],
                 "analysis": result.get("analysis", ""),

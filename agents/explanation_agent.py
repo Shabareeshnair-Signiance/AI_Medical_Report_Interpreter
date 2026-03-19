@@ -84,7 +84,7 @@ Why is this important for health?
             "analysis": analysis,
             "knowledge": knowledge_text
         })
-        print("EXPLANATION RESULT:", result)
+       # print("EXPLANATION RESULT:", result)
 
         logger.info("Explanation Agent completed")
 

@@ -57,7 +57,7 @@ Write ONE short sentence comparing value with reference range.
             "reference_range": ref,
             "status": status
         })
-        print("REPORT RESULT:", result)
+        #print("REPORT RESULT:", result)
 
         logger.info("Report Agent completed")
 

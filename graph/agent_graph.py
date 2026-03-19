@@ -85,6 +85,7 @@ def run_medical_pipeline(file_path: str):
 
         for test in lab_results:
 
+            # ORIGINAL SAFE STATE (DO NOT OVERWRITE)
             state = {
                 "test": test.get("test", "Unknown"),
                 "value": test.get("value", "Unknown"),
@@ -94,10 +95,13 @@ def run_medical_pipeline(file_path: str):
 
             result = graph.invoke(state)
 
-            state = result
+            # SAFETY CHECK
+            if not isinstance(result, dict):
+                result = {}
 
+            # NEVER TRUST GRAPH FOR TEST NAME
             final_output.append({
-                "test": state["test"],
+                "test": state.get("test", "Unknown"), 
                 "analysis": result.get("analysis", ""),
                 "explanation": result.get("explanation", ""),
                 "guidance": result.get("guidance", "")

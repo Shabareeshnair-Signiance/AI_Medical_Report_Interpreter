@@ -14,9 +14,9 @@ def guidance_agent(state: dict):
         logger.info("Starting Health Guidance Agent")
 
         # SINGLE TEST CONTEXT
-        test = state.get("test", "Unknown")
-        status = state.get("status", "Unknown")
-        explanation = state.get("explanation", "")
+        # test = state.get("test", "Unknown")
+        # status = state.get("status", "Unknown")
+        # explanation = state.get("explanation", "")
 
         llm = get_llm()
 
@@ -59,16 +59,31 @@ Safety:
 """
         )
 
+        lab_results = state.get("lab_results", [])
+
+        if not lab_results:
+            logger.error("No lab results for guidance")
+            state["guidance"] = ""
+            return state
+
         chain = prompt | llm | StrOutputParser()
 
-        result = chain.invoke({
-            "test": test,
-            "status": status,
-            "explanation": explanation
-        })
+        guidance_list = []
+
+        for item in lab_results:
+            test = item.get("test", "Unknown")
+            status = item.get("status", "Unknown")
+
+            result = chain.invoke({
+                "test": test,
+                "status": status
+            })
+
+            guidance_list.append(f"{test}:\n{result}")
 
         logger.info("Health Guidance Agent completed")
-        state["guidance"] = result
+
+        state["guidance"] = "\n\n".join(guidance_list)
         return state
 
     except Exception as e:

@@ -15,15 +15,13 @@ def explanation_agent(state: dict):
         logger.info("Starting Explanation Agent")
 
         # SINGLE TEST INPUT
-        test = state.get("test")
-        value = state.get("value")
         status = state.get("status")
         analysis = state.get("analysis")
 
-        if not test or not value:
-            logger.error("Missing required test data in state")
-            state["explanation"] = ""
-            return state
+        # if not test or not value:
+        #     logger.error("Missing required test data in state")
+        #     state["explanation"] = ""
+        #     return state
         
         # Safe fallbacks
         status = status or "Unknown"

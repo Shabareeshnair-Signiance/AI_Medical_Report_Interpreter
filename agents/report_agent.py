@@ -57,11 +57,14 @@ Write ONE short sentence comparing value with reference range.
             "reference_range": ref,
             "status": status
         })
+        print("REPORT RESULT:", result)
 
         logger.info("Report Agent completed")
 
-        return {"analysis": result}
+        state["analysis"] = result
+        return state
 
     except Exception as e:
         logger.error(f"Report Agent Error: {str(e)}")
-        return {"analysis": "Analysis failed"}
+        state["analysis"] = "Analysis failed"
+        return state

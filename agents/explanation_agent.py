@@ -84,22 +84,44 @@ Why is this important for health?
 """
         )
 
+        lab_results = state.get("lab_results", [])
+
+        if not lab_results:
+            logger.error("No lab results for explanation")
+            state["explanation"] = ""
+            return state
+
         chain = prompt | llm | StrOutputParser()
 
-        result = chain.invoke({
-            "test": test,
-            "value": value,
-            "status": status,
-            "analysis": analysis,
-            "knowledge": knowledge_text
-        })
-       # print("EXPLANATION RESULT:", result)
+        explanations = []
+
+        for item in lab_results:
+            test = item.get("test")
+            value = item.get("value")
+            status = item.get("status", "Unknown")
+
+            if not test or not value:
+                continue
+
+            query = f"{test} {value}"
+            knowledge_results = search_medical_knowledge(query, test)
+            knowledge_text = "\n".join(knowledge_results)
+
+            result = chain.invoke({
+                "test": test,
+                "value": value,
+                "status": status,
+                "analysis": state.get("analysis", ""),
+                "knowledge": knowledge_text
+            })
+
+            explanations.append(result)
 
         logger.info("Explanation Agent completed")
 
-        state["explanation"] = result
+        state["explanation"] = "\n\n".join(explanations)
         return state
-
+    
     except Exception as e:
         logger.error(f"Explanation Agent failed: {str(e)}")
         state["explanation"] = "LLM initialization failed"

@@ -84,7 +84,7 @@ Input:
 
 Output Format:
 
-=== CLINICAL SUMMARY ===
+CLINICAL SUMMARY 
 
 Critical Findings:
 - List only if clearly critical

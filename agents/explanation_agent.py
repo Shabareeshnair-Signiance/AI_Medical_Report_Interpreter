@@ -15,15 +15,23 @@ def explanation_agent(state: dict):
         logger.info("Starting Explanation Agent")
 
         # SINGLE TEST INPUT
-        test = state.get("test", "Unknown")
-        value = state.get("value", "Unknown")
-        status = state.get("status", "Unknown")
-        analysis = state.get("analysis", "")
+        test = state.get("test")
+        value = state.get("value")
+        status = state.get("status")
+        analysis = state.get("analysis")
+
+        if not test or not value:
+            logger.error("Missing required test data in state")
+            state["explanation"] = ""
+            return state
+        
+        # Safe fallbacks
+        status = status or "Unknown"
+        analysis = analysis or "No analysis available"
 
         # RAG ONLY FOR THIS TEST
         query = f"{test} {value}"
         knowledge_results = search_medical_knowledge(query, test)
-
         knowledge_text = "\n".join(knowledge_results)
 
         logger.info("Medical knowledge retrieved")
@@ -48,6 +56,7 @@ Rules:
 - DO NOT mention any other tests
 - DO NOT add new medical parameters
 - Keep language very simple
+- Do not generate unrelated information
 
 Input:
 Test: {test}

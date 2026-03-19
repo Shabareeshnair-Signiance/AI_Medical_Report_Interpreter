@@ -10,3 +10,4 @@ paddleocr
 paddlepaddle
 python-dotenv
 numpy
+sentencepiece

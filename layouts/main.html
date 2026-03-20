@@ -186,41 +186,79 @@
             <div class="card">
                 <h2>Explanation</h2>
 
-                {% set blocks = explanation.split("Test Name:") %}
+                {% if "SUMMARY OF RESULTS" in explanation %}
 
-                <div class="explanation-grid">
+                    <!-- MULTI TEST MODE -->
+                    <div class="summary-grid">
 
-                    {% for block in blocks %}
-                        {% if block.strip() %}
-                            <div class="explanation-card">
+                        {% set lines = explanation.split('\n') %}
 
-                                {% set lines = block.strip().split('\n') %}
+                        {% for line in lines %}
 
-                                {% for line in lines %}
+                            {% if "Low Values" in line %}
+                                <div class="summary-card low">
+                                    <h3>🔴 Low Values</h3>
 
-                                    {% if "Test Name:" in line %}
-                                        <h3 class="exp-title">{{ line }}</h3>
+                            {% elif "High Values" in line %}
+                                </div>
+                                <div class="summary-card high">
+                                    <h3>🟠 High Values</h3>
 
-                                    {% elif "What does this test measure?" in line %}
-                                        <p class="exp-heading">🧪 What does this test measure?</p>
+                            {% elif "Normal Values" in line %}
+                                </div>
+                                <div class="summary-card normal">
+                                    <h3>🟢 Normal Values</h3>
 
-                                    {% elif "Is this value normal" in line %}
-                                        <p class="exp-heading">📊 Status Interpretation</p>
+                            {% elif "Overall" in line %}
+                                </div>
+                                <div class="summary-card overall full">
+                                    <h3>🧠 Overall</h3>
 
-                                    {% elif "Why is this important" in line %}
-                                        <p class="exp-heading">❤️ Health Impact</p>
+                            {% elif line.strip().startswith("-") %}
+                                <p class="summary-line">{{ line }}</p>
 
-                                    {% elif line.strip() %}
-                                        <p class="exp-text">{{ line }}</p>
-                                    {% endif %}
+                            {% endif %}
 
-                                {% endfor %}
+                        {% endfor %}
 
-                            </div>
-                        {% endif %}
-                    {% endfor %}
+                        </div>
+                    </div>
 
-                </div>
+                {% else %}
+
+                    <!-- SINGLE / DOUBLE TEST MODE -->
+                    {% set blocks = explanation.split("Test Name:") %}
+
+                    <div class="explanation-grid">
+
+                        {% for block in blocks %}
+                            {% if block.strip() %}
+                                <div class="explanation-card">
+
+                                    {% set lines = block.strip().split('\n') %}
+
+                                    {% for line in lines %}
+                                        {% if "Test Name:" in line %}
+                                            <h3>{{ line }}</h3>
+                                        {% elif "What does this test measure?" in line %}
+                                            <p><strong>🧪 What does this test measure?</strong></p>
+                                        {% elif "Is this value normal" in line %}
+                                            <p><strong>📊 Status Interpretation</strong></p>
+                                        {% elif "Why is this important" in line %}
+                                            <p><strong>❤️ Health Impact</strong></p>
+                                        {% elif line.strip() %}
+                                            <p>{{ line }}</p>
+                                        {% endif %}
+                                    {% endfor %}
+
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+
+                    </div>
+
+                {% endif %}
+
             </div>
             {% endif %}
 

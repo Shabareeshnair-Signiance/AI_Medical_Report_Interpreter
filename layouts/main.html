@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>AI Medical Report Interpreter</title>
 
-    <!-- Link CSS -->
     <link rel="stylesheet" href="/design/theme.css">
 </head>
 
@@ -32,12 +31,14 @@
                     <div class="lab-grid">
                         {% for item in medical_data.lab_results %}
 
-                            {% set status_class = "" %}
-                            {% if item.status == "Low" %}
+                            {% set status = item.status | lower %}
+                            {% set status_class = "normal" %}
+
+                            {% if "low" in status %}
                                 {% set status_class = "low" %}
-                            {% elif item.status == "High" %}
+                            {% elif "high" in status %}
                                 {% set status_class = "high" %}
-                            {% elif item.status == "Normal" %}
+                            {% elif "normal" in status %}
                                 {% set status_class = "normal" %}
                             {% endif %}
 
@@ -63,39 +64,45 @@
             <div class="card">
                 <h2>Validation Details</h2>
 
-                <p><strong>Status:</strong>
-                    {% if validation.is_valid %} Valid Report {% else %} Invalid Report {% endif %}
-                </p>
+                <div class="validation-grid">
+                    <p><strong>Status:</strong>
+                        <span class="badge success">
+                            {% if validation.is_valid %} Valid {% else %} Invalid {% endif %}
+                        </span>
+                    </p>
 
-                <p><strong>Report Type:</strong>
-                    {% if validation.is_duplicate %}
-                        Existing Report — Data already processed
-                    {% else %}
-                        New Report — Freshly processed
+                    <p><strong>Report Type:</strong>
+                        <span class="badge info">
+                            {% if validation.is_duplicate %}
+                                Existing
+                            {% else %}
+                                New
+                            {% endif %}
+                        </span>
+                    </p>
+
+                    {% if validation.extracted_data.user_name %}
+                        <p><strong>Name:</strong> {{ validation.extracted_data.user_name }}</p>
                     {% endif %}
-                </p>
 
-                {% if validation.extracted_data.user_name %}
-                    <p><strong>Name:</strong> {{ validation.extracted_data.user_name }}</p>
-                {% endif %}
+                    {% if validation.extracted_data.pid %}
+                        <p><strong>PID:</strong> {{ validation.extracted_data.pid }}</p>
+                    {% endif %}
 
-                {% if validation.extracted_data.pid %}
-                    <p><strong>PID:</strong> {{ validation.extracted_data.pid }}</p>
-                {% endif %}
+                    {% if validation.extracted_data.reg_no %}
+                        <p><strong>Reg No:</strong> {{ validation.extracted_data.reg_no }}</p>
+                    {% endif %}
 
-                {% if validation.extracted_data.reg_no %}
-                    <p><strong>Reg No:</strong> {{ validation.extracted_data.reg_no }}</p>
-                {% endif %}
-
-                {% if validation.extracted_data.lab_no %}
-                    <p><strong>Lab No:</strong> {{ validation.extracted_data.lab_no }}</p>
-                {% endif %}
+                    {% if validation.extracted_data.lab_no %}
+                        <p><strong>Lab No:</strong> {{ validation.extracted_data.lab_no }}</p>
+                    {% endif %}
+                </div>
             </div>
 
             <!-- Analysis -->
             <div class="card">
                 <h2>Report Analysis</h2>
-                <div style="white-space: pre-line;">
+                <div class="text-block">
                     {{ analysis }}
                 </div>
             </div>
@@ -103,7 +110,7 @@
             <!-- Explanation -->
             <div class="card">
                 <h2>Explanation</h2>
-                <div style="white-space: pre-line;">
+                <div class="text-block">
                     {{ explanation }}
                 </div>
             </div>
@@ -111,7 +118,7 @@
             <!-- Guidance -->
             <div class="card">
                 <h2>Health Guidance</h2>
-                <div style="white-space: pre-line;">
+                <div class="text-block">
                     {{ guidance }}
                 </div>
             </div>

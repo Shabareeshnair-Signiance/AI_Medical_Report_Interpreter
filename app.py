@@ -1,4 +1,6 @@
 import os
+import io
+import sys
 from flask import Flask, render_template, request
 
 from agents.validation_agent import ValidationAgent
@@ -9,6 +11,8 @@ from graph.agent_graph import build_medical_graph
 from storage.database import init_database, save_report, generate_file_hash_from_bytes
 from logger_config import logger
 
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 app = Flask(__name__, template_folder="layouts", static_folder="")
 

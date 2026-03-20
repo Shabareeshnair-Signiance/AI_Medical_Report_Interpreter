@@ -80,23 +80,15 @@
                     </div>
 
                 {% else %}
-                    
-                    <!-- STATUS SECTION -->
                     <div class="validation-section">
-                        <p>
-                            <strong>Status:</strong>
-                            <span class="badge success">✔ Valid</span>
-                        </p>
-
+                        <p><strong>Status:</strong> <span class="badge success">✔ Valid</span></p>
                         <p class="sub-text">Report format verified successfully</p>
                     </div>
 
                     <div class="divider"></div>
 
-                    <!-- REPORT TYPE -->
                     <div class="validation-section">
-                        <p>
-                            <strong>Report Type:</strong>
+                        <p><strong>Report Type:</strong>
                             <span class="badge info">
                                 {% if validation.is_duplicate %} ♻ Existing {% else %} 📄 New {% endif %}
                             </span>
@@ -105,7 +97,6 @@
 
                     <div class="divider"></div>
 
-                    <!-- PATIENT DETAILS -->
                     <div class="validation-section">
                         <h3>Patient Details</h3>
 
@@ -114,24 +105,17 @@
                         {% endif %}
 
                         {% if validation.extracted_data.pid %}
-                            <p><strong>PID:</strong> 
-                                <span class="id-tag">{{ validation.extracted_data.pid }}</span>
-                            </p>
+                            <p><strong>PID:</strong> <span class="id-tag">{{ validation.extracted_data.pid }}</span></p>
                         {% endif %}
 
                         {% if validation.extracted_data.reg_no %}
-                            <p><strong>Reg No:</strong> 
-                                <span class="id-tag">{{ validation.extracted_data.reg_no }}</span>
-                            </p>
+                            <p><strong>Reg No:</strong> <span class="id-tag">{{ validation.extracted_data.reg_no }}</span></p>
                         {% endif %}
 
                         {% if validation.extracted_data.lab_no %}
-                            <p><strong>Lab No:</strong> 
-                                <span class="id-tag">{{ validation.extracted_data.lab_no }}</span>
-                            </p>
+                            <p><strong>Lab No:</strong> <span class="id-tag">{{ validation.extracted_data.lab_no }}</span></p>
                         {% endif %}
                     </div>
-
                 {% endif %}
             </div>
             {% endif %}
@@ -140,64 +124,51 @@
             {% if analysis %}
             <div class="card">
                 <h2>Report Analysis</h2>
-
-                <div class="analysis-container">
-
-                    {% set lines = analysis.split('\n') %}
-
-                    {% for line in lines %}
-
-                        {% if "Critical Findings" in line %}
-                            <div class="analysis-section critical">
-                                <h3>🚨 Critical Findings</h3>
-
-                        {% elif "Abnormal Findings" in line %}
-                            </div>
-                            <div class="analysis-section abnormal">
-                                <h3>⚠ Abnormal Findings</h3>
-
-                        {% elif "Normal Findings" in line %}
-                            </div>
-                            <div class="analysis-section normal">
-                                <h3>✅ Normal Findings</h3>
-
-                        {% elif "Patterns Detected" in line %}
-                            </div>
-                            <div class="analysis-section info">
-                                <h3>📊 Patterns Detected</h3>
-
-                        {% elif "Systems Involved" in line %}
-                            </div>
-                            <div class="analysis-section info">
-                                <h3>🧬 Systems Involved</h3>
-
-                        {% elif "Overall Impression" in line %}
-                            </div>
-                            <div class="analysis-section highlight">
-                                <h3>🧠 Overall Impression</h3>
-
-                        {% elif "Recommended Focus" in line %}
-                            </div>
-                            <div class="analysis-section highlight">
-                                <h3>🎯 Recommended Focus</h3>
-
-                        {% elif line.strip() %}
-                            <p class="analysis-line">{{ line }}</p>
-                        {% endif %}
-
-                    {% endfor %}
-
-                    </div>
+                <div class="text-block">
+                    {{ analysis }}
                 </div>
             </div>
             {% endif %}
 
-            <!-- Explanation -->
+            <!-- UPDATED EXPLANATION -->
             {% if explanation %}
             <div class="card">
                 <h2>Explanation</h2>
-                <div class="text-block">
-                    {{ explanation }}
+
+                {% set blocks = explanation.split("Test Name:") %}
+
+                <div class="explanation-grid">
+
+                    {% for block in blocks %}
+                        {% if block.strip() %}
+                            <div class="explanation-card">
+
+                                {% set lines = block.strip().split('\n') %}
+
+                                {% for line in lines %}
+
+                                    {% if "Test Name:" in line %}
+                                        <h3 class="exp-title">{{ line }}</h3>
+
+                                    {% elif "What does this test measure?" in line %}
+                                        <p class="exp-heading">🧪 What does this test measure?</p>
+
+                                    {% elif "Is this value normal" in line %}
+                                        <p class="exp-heading">📊 Status Interpretation</p>
+
+                                    {% elif "Why is this important" in line %}
+                                        <p class="exp-heading">❤️ Health Impact</p>
+
+                                    {% elif line.strip() %}
+                                        <p class="exp-text">{{ line }}</p>
+                                    {% endif %}
+
+                                {% endfor %}
+
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+
                 </div>
             </div>
             {% endif %}
@@ -217,8 +188,6 @@
         {% endif %}
 
     </div>
-
-    <script src="/logic/script.js"></script>
 
 </body>
 </html>

@@ -4,7 +4,7 @@ import json
 import os
 from logger_config import logger
 
-DB_PATH = "data/medical_reports.db"
+DB_PATH = os.path.join(os.getcwd(), "data", "medical_reports.db")
 
 
 def init_database():

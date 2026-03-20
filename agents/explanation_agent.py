@@ -8,33 +8,68 @@ from logger_config import logger
 
 def explanation_agent(state: dict):
     """
-    LangGraph node for generating explanation for ONE test only.
+    LangGraph node for generating explanation.
+    - <= 2 tests → detailed explanation
+    - > 2 tests → compressed summary
     """
 
     try:
         logger.info("Starting Explanation Agent")
 
-        # SINGLE TEST INPUT
-        status = state.get("status")
-        analysis = state.get("analysis")
+        lab_results = state.get("lab_results", [])
 
-        # if not test or not value:
-        #     logger.error("Missing required test data in state")
-        #     state["explanation"] = ""
-        #     return state
-        
-        # Safe fallbacks
-        status = status or "Unknown"
-        analysis = analysis or "No analysis available"
+        if not lab_results:
+            logger.error("No lab results for explanation")
+            state["explanation"] = ""
+            return state
 
-        # RAG ONLY FOR THIS TEST
-        # query = f"{test} {value}"
-        # knowledge_results = search_medical_knowledge(query, test)
-        # knowledge_text = "\n".join(knowledge_results)
+        num_tests = len(lab_results)
 
-        # logger.info("Medical knowledge retrieved")
+        # MULTIPLE TESTS (COMPRESSED)
+        if num_tests > 2:
+            logger.info("Using compressed explanation mode")
 
-        # Initialize LLM
+            low = []
+            high = []
+            normal = []
+
+            for item in lab_results:
+                test = item.get("test")
+                value = item.get("value")
+                status = item.get("status", "").lower()
+
+                if not test or not value:
+                    continue
+
+                entry = f"{test}: {value}"
+
+                if "low" in status:
+                    low.append(entry)
+                elif "high" in status:
+                    high.append(entry)
+                else:
+                    normal.append(entry)
+
+            explanation = "SUMMARY OF RESULTS:\n\n"
+
+            if low:
+                explanation += "Low Values:\n- " + "\n- ".join(low) + "\n\n"
+
+            if high:
+                explanation += "High Values:\n- " + "\n- ".join(high) + "\n\n"
+
+            if normal:
+                explanation += "Normal Values:\n- " + "\n- ".join(normal) + "\n\n"
+
+            explanation += "Overall:\n"
+            explanation += "Multiple test results observed. Some values are outside normal range. Clinical correlation is recommended."
+
+            state["explanation"] = explanation
+            return state
+
+        # FEW TESTS (DETAILED)
+        logger.info("Using detailed explanation mode")
+
         llm = get_llm()
 
         if llm is None:
@@ -42,7 +77,6 @@ def explanation_agent(state: dict):
             state["explanation"] = "Explanation generation failed"
             return state
 
-        # STRICT PROMPT (NO MULTI-TEST)
         prompt = ChatPromptTemplate.from_template(
             """
 You are a helpful medical assistant.
@@ -82,13 +116,6 @@ Why is this important for health?
 """
         )
 
-        lab_results = state.get("lab_results", [])
-
-        if not lab_results:
-            logger.error("No lab results for explanation")
-            state["explanation"] = ""
-            return state
-
         chain = prompt | llm | StrOutputParser()
 
         explanations = []
@@ -119,8 +146,8 @@ Why is this important for health?
 
         state["explanation"] = "\n\n".join(explanations)
         return state
-    
+
     except Exception as e:
         logger.error(f"Explanation Agent failed: {str(e)}")
-        state["explanation"] = "LLM initialization failed"
+        state["explanation"] = "Explanation generation failed"
         return state

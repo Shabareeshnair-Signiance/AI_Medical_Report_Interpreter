@@ -216,6 +216,8 @@
 
                             {% elif line.strip().startswith("-") %}
                                 <p class="summary-line">{{ line }}</p>
+                            {% elif line.strip() %}
+                                <p class="summary-text">{{ line }}</p>
 
                             {% endif %}
 

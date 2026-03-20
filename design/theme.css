@@ -464,3 +464,9 @@ button:hover {
 .summary-card.high .summary-line {
     font-weight: 500;
 }
+
+.summary-text {
+    margin-top: 8px;
+    line-height: 1.5;
+    color: #444;
+}

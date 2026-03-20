@@ -17,9 +17,9 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
-@app.before_first_request
-def setup():
-    init_database()
+# @app.before_first_request
+# def setup():
+init_database()
 
 
 graph = build_medical_graph()

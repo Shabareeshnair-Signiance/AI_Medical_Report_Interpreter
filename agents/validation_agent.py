@@ -5,6 +5,7 @@ import hashlib
 from logger_config import logger
 from storage.database import check_existing_report
 from processing.pdf_reader import read_pdf
+from processing.llm_validation_extractor import llm_extract_identity
 
 
 class ValidationAgent:
@@ -13,7 +14,7 @@ class ValidationAgent:
         self.allowed_extensions = allowed_extensions or [".pdf"]
         self.max_file_size_mb = max_file_size_mb
 
-    # -------- TEXT NORMALIZATION --------
+    # TEXT NORMALIZATION
     def normalize_text(self, text: str) -> str:
         text = re.sub(r'\s+', ' ', text)
         text = text.replace(" - ", ": ")
@@ -22,7 +23,20 @@ class ValidationAgent:
         text = re.sub(r'P\s*I\s*D', 'PID', text, flags=re.IGNORECASE)
         return text.strip()
 
-    # -------- EXTRACT USER DETAILS --------
+    # CHECK IF MEDICAL REPORT
+    def is_medical_report(self, text: str) -> bool:
+        keywords = [
+            "hemoglobin", "platelet", "blood", "urine",
+            "test", "lab", "report", "glucose", "wbc",
+            "rbc", "thyroid", "vitamin", "serum"
+        ]
+
+        text_lower = text.lower()
+        matches = sum(1 for word in keywords if word in text_lower)
+
+        return matches >= 2  # simple threshold
+
+    # EXTRACT USER DETAILS (REGEX)
     def extract_user_details(self, text: str) -> dict:
         data = {
             "user_name": None,
@@ -36,7 +50,7 @@ class ValidationAgent:
 
         text = self.normalize_text(text)
 
-        # FIXED NAME REGEX (handles middle initial)
+        # try to get proper name
         match = re.search(
             r'\b([A-Z][a-z]+(?:\s[A-Z]\.)?\s[A-Z][a-z]+)\b',
             text
@@ -45,7 +59,7 @@ class ValidationAgent:
         if match:
             data["user_name"] = match.group(1)
 
-        # -------- IDENTIFIERS --------
+        # identifiers
         patterns = {
             "reg_no": r'(?:Reg\s*No|Registration\s*No)\s*[:\-]?\s*(\w+)',
             "lab_no": r'(?:Lab\s*No)\s*[:\-]?\s*(\w+)',
@@ -62,7 +76,7 @@ class ValidationAgent:
 
         return data
 
-    # -------- HASH GENERATION --------
+    # HASH
     def generate_file_hash(self, file_path: str) -> str:
         try:
             sha256 = hashlib.sha256()
@@ -77,7 +91,7 @@ class ValidationAgent:
             logger.error(f"Hash generation failed: {str(e)}")
             return None
 
-    # -------- MAIN VALIDATION --------
+    # MAIN VALIDATION
     def validate(self, file_path: str, file_hash: str = None) -> dict:
 
         logger.info("Starting validation process")
@@ -92,7 +106,7 @@ class ValidationAgent:
             "identifier_used": None
         }
 
-        # -------- FILE CHECKS --------
+        # FILE CHECK
         ext = os.path.splitext(file_path)[1].lower()
         if ext not in self.allowed_extensions:
             result["is_valid"] = False
@@ -102,51 +116,83 @@ class ValidationAgent:
             result["is_valid"] = False
             result["errors"].append("File is empty.")
 
-        # -------- EXTRACT TEXT --------
-        if result["is_valid"]:
-            text = read_pdf(file_path)
+        # stop if file itself invalid
+        if not result["is_valid"]:
+            return result
 
-            extracted = self.extract_user_details(text)
-            result["extracted_data"] = extracted
+        # READ TEXT
+        text = read_pdf(file_path)
 
-            # -------- USER VALIDATION --------
-            if not extracted.get("user_name"):
-                result["errors"].append("User name not found in report.")
+        # CHECK MEDICAL REPORT
+        if not self.is_medical_report(text):
+            result["is_valid"] = False
+            result["errors"].append("Uploaded file is not a valid medical report.")
+            return result
 
-            identifiers = [
-                extracted.get("reg_no"),
-                extracted.get("lab_no"),
-                extracted.get("pid"),
-                extracted.get("patient_id"),
-                extracted.get("accession_no"),
-                extracted.get("visit_no"),
-            ]
+        # REGEX EXTRACTION
+        extracted = self.extract_user_details(text)
 
-            if not any(identifiers):
-                result["errors"].append("No valid identifier found (Reg No / PID / etc).")
+        # CHECK IF NEED LLM
+        use_llm = False
 
-            # Identifier Set
-            for key in ["reg_no", "lab_no", "pid", "patient_id", "accession_no", "visit_no"]:
-                if extracted.get(key):
-                    result["identifier_used"] = f"{key}: {extracted.get(key)}"
-                    break
+        # bad name cases
+        if not extracted.get("user_name") or extracted.get("user_name") in ["Report", "Blood", "Comprehensive"]:
+            use_llm = True
 
-            if result["errors"]:
-                result["is_valid"] = False
+        identifiers = [
+            extracted.get("reg_no"),
+            extracted.get("lab_no"),
+            extracted.get("pid"),
+            extracted.get("patient_id"),
+            extracted.get("accession_no"),
+            extracted.get("visit_no"),
+        ]
 
-        # -------- HASH AND DUPLICATE CHECK --------
-        if result["is_valid"]:
+        if not any(identifiers):
+            use_llm = True
 
-            if not file_hash:
-                file_hash = self.generate_file_hash(file_path)
-                
-            result["file_hash"] = file_hash
+        # LLM FALLBACK
+        if use_llm:
+            logger.warning("Regex failed, switching to LLM extractor")
 
-            existing = check_existing_report(file_hash)
+            llm_data = llm_extract_identity(text)
 
-            if existing:
-                result["is_duplicate"] = True
-                result["existing_result"] = existing
+            if llm_data.get("name"):
+                extracted["user_name"] = llm_data["name"]
+
+            if llm_data.get("identifier"):
+                extracted["reg_no"] = llm_data["identifier"]
+
+        result["extracted_data"] = extracted
+
+        # FINAL VALIDATION
+        if not extracted.get("user_name"):
+            result["errors"].append("User name not found.")
+
+        if not any(identifiers):
+            result["errors"].append("No valid identifier found.")
+
+        # choose identifier
+        for key in ["reg_no", "lab_no", "pid", "patient_id", "accession_no", "visit_no"]:
+            if extracted.get(key):
+                result["identifier_used"] = f"{key}: {extracted.get(key)}"
+                break
+
+        if result["errors"]:
+            result["is_valid"] = False
+            return result
+
+        # DUPLICATE CHECK
+        if not file_hash:
+            file_hash = self.generate_file_hash(file_path)
+
+        result["file_hash"] = file_hash
+
+        existing = check_existing_report(file_hash)
+
+        if existing:
+            result["is_duplicate"] = True
+            result["existing_result"] = existing
 
         logger.info(f"Validation result: {result}")
 

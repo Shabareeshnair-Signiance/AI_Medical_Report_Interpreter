@@ -295,3 +295,123 @@ button:hover {
     font-size: 14px;
     color: #856404;
 }
+
+/* GRID LAYOUT */
+.analysis-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 15px;
+}
+
+/* CARD STYLE */
+.analysis-card {
+    background: #f9f9f9;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+/* FULL WIDTH (important sections) */
+.full-width {
+    grid-column: span 2;
+}
+
+/* COLORS */
+.analysis-card.critical {
+    border-left: 5px solid #dc3545;
+}
+
+.analysis-card.abnormal {
+    border-left: 5px solid #fd7e14;
+}
+
+.analysis-card.normal {
+    border-left: 5px solid #28a745;
+}
+
+.analysis-card.info {
+    border-left: 5px solid #007bff;
+}
+
+.analysis-card.highlight {
+    border-left: 5px solid #6f42c1;
+}
+
+/* TEXT */
+.analysis-line {
+    margin: 6px 0;
+    line-height: 1.5;
+}
+
+/* Highlight abnormal text */
+.analysis-card.abnormal .analysis-line {
+    color: #dc3545;
+    font-weight: 500;
+}
+
+/* Summary Box */
+.summary-box {
+    background: #eef3ff;
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    font-size: 14px;
+}
+
+/* Layout */
+.analysis-layout {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+/* Cards */
+.analysis-card {
+    background: #f9f9f9;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+/* Large cards (top priority) */
+.analysis-card.large {
+    grid-column: span 1;
+}
+
+/* Full width */
+.analysis-card.full {
+    grid-column: span 2;
+}
+
+/* Colors */
+.analysis-card.critical {
+    border-left: 5px solid #dc3545;
+}
+
+.analysis-card.abnormal {
+    border-left: 5px solid #fd7e14;
+}
+
+.analysis-card.normal {
+    border-left: 5px solid #28a745;
+}
+
+.analysis-card.info {
+    border-left: 5px solid #007bff;
+}
+
+.analysis-card.highlight {
+    border-left: 5px solid #6f42c1;
+}
+
+/* Text */
+.analysis-line {
+    margin: 6px 0;
+    line-height: 1.5;
+}
+
+/* Highlight abnormal */
+.analysis-card.abnormal .analysis-line {
+    color: #dc3545;
+    font-weight: 500;
+}

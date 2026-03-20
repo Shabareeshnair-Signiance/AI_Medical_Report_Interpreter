@@ -64,39 +64,51 @@
             <div class="card">
                 <h2>Validation Details</h2>
 
-                <div class="validation-grid">
-                    <p><strong>Status:</strong>
-                        <span class="badge success">
-                            {% if validation.is_valid %} Valid {% else %} Invalid {% endif %}
-                        </span>
-                    </p>
+                {% if not validation.is_valid %}
+                    <div class="error-box">
+                        <h3>❌ Invalid Report</h3>
+                        <p>{{ error_message }}</p>
 
-                    <p><strong>Report Type:</strong>
-                        <span class="badge info">
-                            {% if validation.is_duplicate %}
-                                Existing
-                            {% else %}
-                                New
-                            {% endif %}
-                        </span>
-                    </p>
+                        {% if validation.errors %}
+                            <ul>
+                                {% for err in validation.errors %}
+                                    <li>{{ err }}</li>
+                                {% endfor %}
+                            </ul>
+                        {% endif %}
+                    </div>
 
-                    {% if validation.extracted_data.user_name %}
-                        <p><strong>Name:</strong> {{ validation.extracted_data.user_name }}</p>
-                    {% endif %}
+                {% else %}
+                    <div class="validation-grid">
 
-                    {% if validation.extracted_data.pid %}
-                        <p><strong>PID:</strong> {{ validation.extracted_data.pid }}</p>
-                    {% endif %}
+                        <p><strong>Status:</strong>
+                            <span class="badge success">Valid</span>
+                        </p>
 
-                    {% if validation.extracted_data.reg_no %}
-                        <p><strong>Reg No:</strong> {{ validation.extracted_data.reg_no }}</p>
-                    {% endif %}
+                        <p><strong>Report Type:</strong>
+                            <span class="badge info">
+                                {% if validation.is_duplicate %} Existing {% else %} New {% endif %}
+                            </span>
+                        </p>
 
-                    {% if validation.extracted_data.lab_no %}
-                        <p><strong>Lab No:</strong> {{ validation.extracted_data.lab_no }}</p>
-                    {% endif %}
-                </div>
+                        {% if validation.extracted_data.user_name %}
+                            <p><strong>Name:</strong> {{ validation.extracted_data.user_name }}</p>
+                        {% endif %}
+
+                        {% if validation.extracted_data.pid %}
+                            <p><strong>PID:</strong> {{ validation.extracted_data.pid }}</p>
+                        {% endif %}
+
+                        {% if validation.extracted_data.reg_no %}
+                            <p><strong>Reg No:</strong> {{ validation.extracted_data.reg_no }}</p>
+                        {% endif %}
+
+                        {% if validation.extracted_data.lab_no %}
+                            <p><strong>Lab No:</strong> {{ validation.extracted_data.lab_no }}</p>
+                        {% endif %}
+
+                    </div>
+                {% endif %}
             </div>
 
             <!-- Analysis -->

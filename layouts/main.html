@@ -125,19 +125,24 @@
             <div class="card">
                 <h2>Report Analysis</h2>
 
-                <div class="analysis-grid">
+                <!-- Clinical Summary -->
+                <div class="summary-box">
+                    <strong>Clinical Summary:</strong> Overview of report findings
+                </div>
+
+                <div class="analysis-layout">
 
                     {% set lines = analysis.split('\n') %}
 
                     {% for line in lines %}
 
                         {% if "Critical Findings" in line %}
-                            <div class="analysis-card critical">
+                            <div class="analysis-card critical large">
                                 <h3>🚨 Critical Findings</h3>
 
                         {% elif "Abnormal Findings" in line %}
                             </div>
-                            <div class="analysis-card abnormal">
+                            <div class="analysis-card abnormal large">
                                 <h3>⚠ Abnormal Findings</h3>
 
                         {% elif "Normal Findings" in line %}
@@ -157,12 +162,12 @@
 
                         {% elif "Overall Impression" in line %}
                             </div>
-                            <div class="analysis-card highlight full-width">
+                            <div class="analysis-card highlight full">
                                 <h3>🧠 Overall Impression</h3>
 
                         {% elif "Recommended Focus" in line %}
                             </div>
-                            <div class="analysis-card highlight full-width">
+                            <div class="analysis-card highlight full">
                                 <h3>🎯 Recommended Focus</h3>
 
                         {% elif line.strip() %}

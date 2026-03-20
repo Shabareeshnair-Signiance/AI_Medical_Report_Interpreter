@@ -91,7 +91,7 @@ Critical Findings:
 - Otherwise write: None
 
 Abnormal Findings:
-- Test → value (Status, Severity) → observation only (e.g., "Low value observed", "Elevated value observed")
+- <Test Name>: <Value> (<Status>) – <short simple observation>
 
 Normal Findings:
 - List ALL normal tests briefly (do not skip)

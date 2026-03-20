@@ -136,7 +136,12 @@ class ValidationAgent:
         use_llm = False
 
         # bad name cases
-        if not extracted.get("user_name") or extracted.get("user_name") in ["Report", "Blood", "Comprehensive"]:
+        name = extracted.get("user_name", "")
+
+        if (
+            not name or
+            any(word in name.lower() for word in ["report", "blood", "test", "profile", "comprehensive"])
+        ):
             use_llm = True
 
         identifiers = [

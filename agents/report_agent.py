@@ -84,7 +84,6 @@ Input:
 
 Output Format:
 
-CLINICAL SUMMARY 
 
 Critical Findings:
 - List only if clearly critical

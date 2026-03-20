@@ -7,85 +7,59 @@ from logger_config import logger
 
 def guidance_agent(state: dict):
     """
-    LangGraph node for generating guidance for ONE test only.
+    LangGraph node for generating simple general guidance.
+    - Always returns 2 points + doctor advice
     """
 
     try:
         logger.info("Starting Health Guidance Agent")
 
-        # SINGLE TEST CONTEXT
-        # test = state.get("test", "Unknown")
-        # status = state.get("status", "Unknown")
-        # explanation = state.get("explanation", "")
-
         llm = get_llm()
 
         if llm is None:
             logger.error("LLM initialization failed")
-            return {"guidance": "LLM initialization failed"}
+            state["guidance"] = "LLM initialization failed"
+            return state
 
-        # STRICT PROMPT
+        # UPDATED PROMPT (NO TEST DATA)
         prompt = ChatPromptTemplate.from_template(
             """
 You are a medical wellness assistant.
 
-Provide general healthy lifestyle guidance based on a medical test.
+Provide simple general health guidance.
 
 Rules:
-- Focus ONLY on general health improvement
-- DO NOT give test-specific medical advice
-- DO NOT mention other tests
-- DO NOT diagnose or suggest diseases
-- DO NOT prescribe medicines
+- Give ONLY 2 points
+- Keep it very short and simple
+- Focus only on:
+  1. Healthy diet
+  2. Regular exercise
+- DO NOT mention any medical tests
+- DO NOT mention values
+- DO NOT add extra points
 
-Input:
-Test: {test}
-Status: {status}
+Also add one final line:
+"Consult a doctor if needed."
 
-Output:
-Provide 4–5 simple lifestyle suggestions.
+Output Format:
+- <point 1>
+- <point 2>
 
-Include:
-- Healthy diet
-- Physical activity
-- Daily habits
-
-Format:
-- Each point on a new line
-- Keep it short and practical
-
-Safety:
-- Encourage consulting a doctor if values are abnormal
+Consult a doctor if needed.
 """
         )
 
-        lab_results = state.get("lab_results", [])
-
-        if not lab_results:
-            logger.error("No lab results for guidance")
-            state["guidance"] = ""
-            return state
-
         chain = prompt | llm | StrOutputParser()
 
-        guidance_list = []
-
-        for item in lab_results:
-            test = item.get("test", "Unknown")
-            status = item.get("status", "Unknown")
-
-            result = chain.invoke({
-                "test": test,
-                "status": status
-            })
-
-            guidance_list.append(f"{test}:\n{result}")
+        # NO INPUT NEEDED
+        result = chain.invoke({})
 
         logger.info("Health Guidance Agent completed")
 
-        state["guidance"] = "\n\n".join(guidance_list)
+        state["guidance"] = result
         return state
 
     except Exception as e:
         logger.error(f"Guidance Agent failed: {str(e)}")
-        return {"guidance": "Health guidance generation failed"}
+        state["guidance"] = "Health guidance generation failed"
+        return state

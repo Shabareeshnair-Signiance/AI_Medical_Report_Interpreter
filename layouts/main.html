@@ -124,8 +124,59 @@
             {% if analysis %}
             <div class="card">
                 <h2>Report Analysis</h2>
-                <div class="text-block">
-                    {{ analysis }}
+
+                <div class="analysis-container">
+
+                    {% set current_section = "" %}
+                    {% set lines = analysis.split('\n') %}
+
+                    {% for line in lines %}
+
+                        {% if "Critical Findings" in line %}
+                            <div class="analysis-section critical">
+                                <h3>🚨 Critical Findings</h3>
+                            {% set current_section = "critical" %}
+
+                        {% elif "Abnormal Findings" in line %}
+                            </div>
+                            <div class="analysis-section abnormal">
+                                <h3>⚠ Abnormal Findings</h3>
+                            {% set current_section = "abnormal" %}
+
+                        {% elif "Normal Findings" in line %}
+                            </div>
+                            <div class="analysis-section normal">
+                                <h3>✅ Normal Findings</h3>
+                            {% set current_section = "normal" %}
+
+                        {% elif "Patterns Detected" in line %}
+                            </div>
+                            <div class="analysis-section info">
+                                <h3>📊 Patterns Detected</h3>
+
+                        {% elif "Systems Involved" in line %}
+                            </div>
+                            <div class="analysis-section info">
+                                <h3>🧬 Systems Involved</h3>
+
+                        {% elif "Overall Impression" in line %}
+                            </div>
+                            <div class="analysis-section highlight">
+                                <h3>🧠 Overall Impression</h3>
+
+                        {% elif "Recommended Focus" in line %}
+                            </div>
+                            <div class="analysis-section highlight">
+                                <h3>🎯 Recommended Focus</h3>
+
+                        {% elif line.strip() %}
+                            <p class="analysis-line">{{ line }}</p>
+                        {% endif %}
+
+                    {% endfor %}
+
+                    </div>
+
                 </div>
             </div>
             {% endif %}

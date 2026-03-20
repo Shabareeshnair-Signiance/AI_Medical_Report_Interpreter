@@ -24,20 +24,36 @@
 
         <div class="results">
 
-            <!-- CLEAN LAB RESULTS -->
+            <!-- LAB RESULTS -->
             <div class="card">
                 <h2>Extracted Medical Data</h2>
 
                 {% if medical_data.lab_results %}
-                    {% for item in medical_data.lab_results %}
-                        <div style="margin-bottom: 15px;">
-                            <p><strong>Test:</strong> {{ item.test }}</p>
-                            <p><strong>Value:</strong> {{ item.value }}</p>
-                            <p><strong>Reference Range:</strong> {{ item.reference_range }}</p>
-                            <p><strong>Status:</strong> {{ item.status }}</p>
-                        </div>
-                        <!-- Removed unwanted line -->
-                    {% endfor %}
+                    <div class="lab-grid">
+                        {% for item in medical_data.lab_results %}
+
+                            {% set status_class = "" %}
+                            {% if item.status == "Low" %}
+                                {% set status_class = "low" %}
+                            {% elif item.status == "High" %}
+                                {% set status_class = "high" %}
+                            {% elif item.status == "Normal" %}
+                                {% set status_class = "normal" %}
+                            {% endif %}
+
+                            <div class="lab-card {{ status_class }}">
+                                <h3>{{ item.test }}</h3>
+
+                                <p><strong>Value:</strong> {{ item.value }}</p>
+                                <p><strong>Range:</strong> {{ item.reference_range }}</p>
+
+                                <span class="status-badge {{ status_class }}">
+                                    {{ item.status }}
+                                </span>
+                            </div>
+
+                        {% endfor %}
+                    </div>
                 {% else %}
                     <p>No lab results found</p>
                 {% endif %}
@@ -47,17 +63,11 @@
             <div class="card">
                 <h2>Validation Details</h2>
 
-                <p>
-                    <strong>Status:</strong>
-                    {% if validation.is_valid %}
-                        Valid Report
-                    {% else %}
-                        Invalid Report
-                    {% endif %}
+                <p><strong>Status:</strong>
+                    {% if validation.is_valid %} Valid Report {% else %} Invalid Report {% endif %}
                 </p>
 
-                <p>
-                    <strong>Report Type:</strong>
+                <p><strong>Report Type:</strong>
                     {% if validation.is_duplicate %}
                         Existing Report — Data already processed
                     {% else %}
@@ -85,10 +95,12 @@
             <!-- Analysis -->
             <div class="card">
                 <h2>Report Analysis</h2>
-                <p>{{ analysis }}</p>
+                <div style="white-space: pre-line;">
+                    {{ analysis }}
+                </div>
             </div>
 
-            <!-- FIXED EXPLANATION -->
+            <!-- Explanation -->
             <div class="card">
                 <h2>Explanation</h2>
                 <div style="white-space: pre-line;">

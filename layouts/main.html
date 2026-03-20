@@ -186,46 +186,51 @@
             <div class="card">
                 <h2>Explanation</h2>
 
-                {% if "SUMMARY OF RESULTS" in line %}
-                    <div class="summary-header">Summary of Results</div>
+                {% if "SUMMARY OF RESULTS" in explanation %}
 
                     <!-- MULTI TEST MODE -->
                     <div class="summary-grid">
 
                         {% set lines = explanation.split('\n') %}
+                        {% set current_section = "" %}
 
                         {% for line in lines %}
 
                             {% if "Low Values" in line %}
+                                {% set current_section = "low" %}
                                 <div class="summary-card low">
                                     <h3>🔴 Low Values</h3>
 
                             {% elif "High Values" in line %}
                                 </div>
+                                {% set current_section = "high" %}
                                 <div class="summary-card high">
                                     <h3>🟠 High Values</h3>
 
                             {% elif "Normal Values" in line %}
                                 </div>
+                                {% set current_section = "normal" %}
                                 <div class="summary-card normal">
                                     <h3>🟢 Normal Values</h3>
 
                             {% elif "Overall" in line %}
                                 </div>
+                                {% set current_section = "overall" %}
                                 <div class="summary-card overall full">
                                     <h3>🧠 Overall</h3>
 
                             {% elif line.strip().startswith("-") %}
                                 <p class="summary-line">{{ line }}</p>
-                            {% elif line.strip() %}
+
+                            {% elif line.strip() and "SUMMARY OF RESULTS" not in line %}
                                 <p class="summary-text">{{ line }}</p>
 
                             {% endif %}
 
                         {% endfor %}
 
-                        </div>
-                    </div>
+                        </div> <!-- CLOSE LAST CARD -->
+                    </div> <!-- summary-grid -->
 
                 {% else %}
 

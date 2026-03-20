@@ -19,11 +19,12 @@
             <button type="submit">Upload Report</button>
         </form>
 
-        {% if medical_data %}
+        {% if medical_data or validation %}
 
         <div class="results">
 
             <!-- LAB RESULTS -->
+            {% if medical_data %}
             <div class="card">
                 <h2>Extracted Medical Data</h2>
 
@@ -38,8 +39,6 @@
                                 {% set status_class = "low" %}
                             {% elif "high" in status %}
                                 {% set status_class = "high" %}
-                            {% elif "normal" in status %}
-                                {% set status_class = "normal" %}
                             {% endif %}
 
                             <div class="lab-card {{ status_class }}">
@@ -59,8 +58,10 @@
                     <p>No lab results found</p>
                 {% endif %}
             </div>
+            {% endif %}
 
             <!-- VALIDATION -->
+            {% if validation %}
             <div class="card">
                 <h2>Validation Details</h2>
 
@@ -79,61 +80,137 @@
                     </div>
 
                 {% else %}
-                    <div class="validation-grid">
-
-                        <p><strong>Status:</strong>
-                            <span class="badge success">Valid</span>
+                    
+                    <!-- STATUS SECTION -->
+                    <div class="validation-section">
+                        <p>
+                            <strong>Status:</strong>
+                            <span class="badge success">✔ Valid</span>
                         </p>
 
-                        <p><strong>Report Type:</strong>
+                        <p class="sub-text">Report format verified successfully</p>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <!-- REPORT TYPE -->
+                    <div class="validation-section">
+                        <p>
+                            <strong>Report Type:</strong>
                             <span class="badge info">
-                                {% if validation.is_duplicate %} Existing {% else %} New {% endif %}
+                                {% if validation.is_duplicate %} ♻ Existing {% else %} 📄 New {% endif %}
                             </span>
                         </p>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <!-- PATIENT DETAILS -->
+                    <div class="validation-section">
+                        <h3>Patient Details</h3>
 
                         {% if validation.extracted_data.user_name %}
                             <p><strong>Name:</strong> {{ validation.extracted_data.user_name }}</p>
                         {% endif %}
 
                         {% if validation.extracted_data.pid %}
-                            <p><strong>PID:</strong> {{ validation.extracted_data.pid }}</p>
+                            <p><strong>PID:</strong> 
+                                <span class="id-tag">{{ validation.extracted_data.pid }}</span>
+                            </p>
                         {% endif %}
 
                         {% if validation.extracted_data.reg_no %}
-                            <p><strong>Reg No:</strong> {{ validation.extracted_data.reg_no }}</p>
+                            <p><strong>Reg No:</strong> 
+                                <span class="id-tag">{{ validation.extracted_data.reg_no }}</span>
+                            </p>
                         {% endif %}
 
                         {% if validation.extracted_data.lab_no %}
-                            <p><strong>Lab No:</strong> {{ validation.extracted_data.lab_no }}</p>
+                            <p><strong>Lab No:</strong> 
+                                <span class="id-tag">{{ validation.extracted_data.lab_no }}</span>
+                            </p>
                         {% endif %}
-
                     </div>
+
                 {% endif %}
             </div>
+            {% endif %}
 
             <!-- Analysis -->
+            {% if analysis %}
             <div class="card">
                 <h2>Report Analysis</h2>
-                <div class="text-block">
-                    {{ analysis }}
+
+                <div class="analysis-container">
+
+                    {% set lines = analysis.split('\n') %}
+
+                    {% for line in lines %}
+
+                        {% if "Critical Findings" in line %}
+                            <div class="analysis-section critical">
+                                <h3>🚨 Critical Findings</h3>
+
+                        {% elif "Abnormal Findings" in line %}
+                            </div>
+                            <div class="analysis-section abnormal">
+                                <h3>⚠ Abnormal Findings</h3>
+
+                        {% elif "Normal Findings" in line %}
+                            </div>
+                            <div class="analysis-section normal">
+                                <h3>✅ Normal Findings</h3>
+
+                        {% elif "Patterns Detected" in line %}
+                            </div>
+                            <div class="analysis-section info">
+                                <h3>📊 Patterns Detected</h3>
+
+                        {% elif "Systems Involved" in line %}
+                            </div>
+                            <div class="analysis-section info">
+                                <h3>🧬 Systems Involved</h3>
+
+                        {% elif "Overall Impression" in line %}
+                            </div>
+                            <div class="analysis-section highlight">
+                                <h3>🧠 Overall Impression</h3>
+
+                        {% elif "Recommended Focus" in line %}
+                            </div>
+                            <div class="analysis-section highlight">
+                                <h3>🎯 Recommended Focus</h3>
+
+                        {% elif line.strip() %}
+                            <p class="analysis-line">{{ line }}</p>
+                        {% endif %}
+
+                    {% endfor %}
+
+                    </div>
                 </div>
             </div>
+            {% endif %}
 
             <!-- Explanation -->
+            {% if explanation %}
             <div class="card">
                 <h2>Explanation</h2>
                 <div class="text-block">
                     {{ explanation }}
                 </div>
             </div>
+            {% endif %}
 
             <!-- Guidance -->
+            {% if guidance %}
             <div class="card">
                 <h2>Health Guidance</h2>
                 <div class="text-block">
                     {{ guidance }}
                 </div>
             </div>
+            {% endif %}
 
         </div>
 

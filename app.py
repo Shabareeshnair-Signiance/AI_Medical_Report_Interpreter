@@ -63,8 +63,8 @@ def index():
             if not validation_result["is_valid"]:
                 return render_template(
                     "main.html",
-                    errors=validation_result["errors"],
-                    validation = validation_result
+                    validation=validation_result,
+                    error_message="Invalid file. Please upload a proper medical report."
                 )
             
             # DUPLICATION

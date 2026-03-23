@@ -477,3 +477,56 @@ button:hover {
     margin-bottom: 10px;
     color: #333;
 }
+
+/* ========================= */
+/* CHATBOX STYLING */
+/* ========================= */
+
+.chatbox-section {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #ddd;
+}
+
+#chatbox {
+    background: #f9f9f9;
+    padding: 10px;
+    border-radius: 8px;
+    height: 220px;
+    overflow-y: auto;
+    border: 1px solid #e0e0e0;
+}
+
+/* Chat Messages */
+#chatbox div {
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+
+/* User Message */
+#chatbox div b:contains("You") {
+    color: #007bff;
+}
+
+/* AI Message */
+#chatbox div b:contains("AI") {
+    color: #28a745;
+}
+
+/* Input Area */
+.chatbox-section input {
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 8px;
+    outline: none;
+}
+
+.chatbox-section input:focus {
+    border-color: #007bff;
+}
+
+/* Button inside chat */
+.chatbox-section button {
+    padding: 8px 14px;
+    font-size: 14px;
+}

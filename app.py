@@ -24,7 +24,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 # Global Storage for chat
-latest_analysis = ""
+#latest_analysis = ""
 
 # @app.before_first_request
 # def setup():
@@ -38,7 +38,7 @@ validator = ValidationAgent()
 @app.route("/", methods=["GET", "POST"])
 def index():
 
-    global latest_analysis
+    #global latest_analysis
 
     try:
         if request.method == "POST":
@@ -79,7 +79,7 @@ def index():
                 existing = validation_result["existing_result"]
 
                 # storing analysis for chat
-                latest_analysis = existing.get("analysis", "")
+                #latest_analysis = existing.get("analysis", "")
 
                 return render_template(
                     "main.html",
@@ -119,7 +119,7 @@ def index():
             result = graph.invoke(state)
 
             # storing alanlysis for chat
-            latest_analysis = result.get("anlysis", "")
+            #latest_analysis = result.get("analysis", "")
 
             # FORCE ORIGINAL DATA (avoid LLM corruption)
             result["medical_data"] = medical_data
@@ -146,20 +146,21 @@ def index():
 @app.route("/chat", methods=["POST"])
 def chat():
 
-    global latest_analysis
+    #global latest_analysis
 
     try:
         data = request.get_json()
         user_question = data.get("message", "")
+        analysis = data.get("analysis", "")
 
         if not user_question:
             return jsonify({"response": "No question provided"})
         
-        if not latest_analysis:
+        if not analysis:
             return jsonify({"response": "No report analysis available"})
         
         # calling the chat agent
-        response = report_chat_agent(latest_analysis, user_question)
+        response = report_chat_agent(analysis, user_question)
 
         return jsonify({"response": response})
     

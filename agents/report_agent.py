@@ -117,12 +117,18 @@ STRICT RULES:
 - Highlight abnormal findings clearly
 - Include normal findings briefly (do not expand too much)
 - Prioritize abnormal findings over normal ones
-- You MUST include a "Normal Findings" section
-- Do NOT skip normal values
+- Include "Normal Findings" ONLY if normal values exist
+- If no normal values -> write: "No normal parameters available"
+- If only one test exists → explicitly mention that
 - Severity must be based ONLY on comparison with reference range
 - If reference range is missing or unclear → do NOT assign severity
 - If only one abnormal test is present, use "Single abnormal value observed"
 - If multiple, use "Multiple abnormal values observed"
+
+SPECIAL RULE:
+- If force_no_normal is True -> You MUST write:
+  "No normal parameters available"
+- Do NOT generate any normal findings  
 
 ROBUSTNESS RULES (VERY IMPORTANT):
 - Test names may vary (e.g., "Hb", "Hemoglobin", "HGB") → treat them as independent entries without guessing equivalence
@@ -148,7 +154,6 @@ Input:
 
 Output Format:
 
-
 Critical Findings:
 - List only if clearly critical
 - Otherwise write: None
@@ -157,8 +162,9 @@ Abnormal Findings:
 - <Test Name>: <Value> (<Status>) – <short simple observation>
 
 Normal Findings:
-- List ALL normal tests briefly (do not skip)
-- If many, summarize as: "Other parameters within normal limits"
+- List normal tests ONLY if present
+- If none -> "No normal parameters available"
+- Do NOT assume existence of other tests
 
 Patterns Detected:
 - Only list if clearly supported by multiple abnormal values
@@ -184,8 +190,22 @@ ONLY return this format. No JSON. No extra explanation.
 
         chain = prompt | llm | StrOutputParser()
 
+        lab_results = state.get("lab_results", [])
+
+        # Guard for checking normal values
+        normal_tests = [
+            item for item in lab_results
+            if item.get("status", "").lower() == "normal"
+        ]
+
+        if len(lab_results) <= 1 and not normal_tests:
+            state["force_no_normal"] = True
+        else:
+            state["force_no_normal"] = False
+
         result = chain.invoke({
-            "lab_results": lab_results
+            "lab_results": lab_results,
+            "force_no_normal": state.get("force_no_normal", False)
         })
 
         # Safe fallback
@@ -259,6 +279,10 @@ You are a clinical assistant helping doctors understand a lab report.
 
 STRICT RULES:
 - Answer ONLY based on given analysis
+- Answer STRICTLY from analysis text
+- Do NOT assume existence of tests not mentioned
+- If analysis mentions only one test -- do NOT refer to other tests
+- Do NOT say "other tests are normal" unless explicitly written
 - Use very simple language
 - Explain in short and clear sentences
 - Do NOT add new assumptions

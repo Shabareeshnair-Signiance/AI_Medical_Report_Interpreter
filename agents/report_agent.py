@@ -203,63 +203,63 @@ Answer:
 
 
 # TESTING BLOCK 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    from processing.pdf_reader import read_pdf
-    from processing.report_parser import parse_medical_report
-    from processing.llm_extractor import llm_extract_medical_data
+#     from processing.pdf_reader import read_pdf
+#     from processing.report_parser import parse_medical_report
+#     from processing.llm_extractor import llm_extract_medical_data
 
-    print("\n=== Running Report Agent Test ===\n")
+#     print("\n=== Running Report Agent Test ===\n")
 
-    file_path = "sample_data/Glucose_report.pdf"
+#     file_path = "sample_data/Glucose_report.pdf"
 
-    try:
-        # Read PDF
-        extracted_text = read_pdf(file_path)
+#     try:
+#         # Read PDF
+#         extracted_text = read_pdf(file_path)
 
-        print("\n=== EXTRACTED TEXT (Preview) ===\n")
-        print(extracted_text[:500])
+#         print("\n=== EXTRACTED TEXT (Preview) ===\n")
+#         print(extracted_text[:500])
 
-        # Try Regex Parser
-        parsed_results = parse_medical_report(extracted_text)
+#         # Try Regex Parser
+#         parsed_results = parse_medical_report(extracted_text)
 
-        # Smart Fallback
-        lab_results = parsed_results.get("lab_results", [])
+#         # Smart Fallback
+#         lab_results = parsed_results.get("lab_results", [])
 
-        # Detect corrupted test names (numbers inside test name)
-        bad_parsing = any(
-            any(char.isdigit() for char in item.get("test", ""))
-            for item in lab_results
-        )
+#         # Detect corrupted test names (numbers inside test name)
+#         bad_parsing = any(
+#             any(char.isdigit() for char in item.get("test", ""))
+#             for item in lab_results
+#         )
 
-        # Detect missing important tests (like TSH in your case)
-        missing_key_tests = not any(
-            "tsh" in item.get("test", "").lower()
-            for item in lab_results
-        )
+#         # Detect missing important tests (like TSH in your case)
+#         missing_key_tests = not any(
+#             "tsh" in item.get("test", "").lower()
+#             for item in lab_results
+#         )
 
-        # If parser fails OR data looks wrong → switch to LLM
-        if not lab_results or bad_parsing or missing_key_tests:
-            logger.warning("Parser unreliable, Switching to LLM Extractor")
+#         # If parser fails OR data looks wrong → switch to LLM
+#         if not lab_results or bad_parsing or missing_key_tests:
+#             logger.warning("Parser unreliable, Switching to LLM Extractor")
 
-            parsed_results = llm_extract_medical_data(extracted_text)
+#             parsed_results = llm_extract_medical_data(extracted_text)
 
-        print("\n=== FINAL PARSED LAB RESULTS ===\n")
-        print(parsed_results)
+#         print("\n=== FINAL PARSED LAB RESULTS ===\n")
+#         print(parsed_results)
 
-        # Run Report Agent
-        result = report_agent(parsed_results)
+#         # Run Report Agent
+#         result = report_agent(parsed_results)
 
-        print("\n=== FINAL ANALYSIS OUTPUT ===\n")
-        print(result.get("analysis"))
+#         print("\n=== FINAL ANALYSIS OUTPUT ===\n")
+#         print(result.get("analysis"))
 
-        # chatbox testing
-        question = "Is my report okay?"
+#         # chatbox testing
+#         question = "Is my report okay?"
 
-        chat_response = report_chat_agent(result.get("analysis"), question)
+#         chat_response = report_chat_agent(result.get("analysis"), question)
 
-        print("\n=== Chat Response ===\n")
-        print(chat_response)
+#         print("\n=== Chat Response ===\n")
+#         print(chat_response)
 
-    except Exception as e:
-        print("\nERROR OCCURRED:\n", str(e))
+#     except Exception as e:
+#         print("\nERROR OCCURRED:\n", str(e))

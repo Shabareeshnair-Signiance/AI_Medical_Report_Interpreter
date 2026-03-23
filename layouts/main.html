@@ -184,8 +184,12 @@
 
                         <div id="chatbox" style="max-height:250px; overflow-y:auto; margin-bottom:10px;"></div>
 
-                        <div style="display:flex; gap:10px;">
+                        <div style="display:flex; gap:10px; align-items:center;">
                             <input type="text" id="userInput" placeholder="Ask a question..." style="flex:1; padding:8px;">
+
+                            <!-- 🎤 Mic Button (NEW) -->
+                            <button id="micBtn" style="padding:8px;">🎤</button>
+
                             <button onclick="sendMessage()">Send</button>
                         </div>
 
@@ -353,6 +357,47 @@ async function sendMessage() {
 
     } catch (error) {
         chatbox.innerHTML += `<div>Error occurred</div>`;
+    }
+}
+
+// 🎤 Speech Recognition
+const micBtn = document.getElementById("micBtn");
+const inputField = document.getElementById("userInput");
+
+let recognition;
+
+if ('webkitSpeechRecognition' in window && micBtn) {
+
+    recognition = new webkitSpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = "en-IN";
+
+    micBtn.addEventListener("click", () => {
+        recognition.start();
+        micBtn.innerText = "🎙️ Listening...";
+    });
+
+    recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript;
+
+        inputField.value = transcript;
+
+        micBtn.innerText = "🎤";
+    };
+
+    recognition.onerror = function() {
+        micBtn.innerText = "🎤";
+        alert("Speech recognition error");
+    };
+
+    recognition.onend = function() {
+        micBtn.innerText = "🎤";
+    };
+
+} else {
+    if (micBtn) {
+        micBtn.style.display = "none"; // hide mic if not supported
     }
 }
 </script>

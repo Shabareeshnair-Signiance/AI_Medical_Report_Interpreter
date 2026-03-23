@@ -107,7 +107,7 @@ Systems Involved:
 Overall Impression:
 - Observation-based summary only
 - Do NOT include diagnosis or assumptions
-- If multiple abnormalities: "Multiple abnormal values observed → Requires clinical correlation"
+- If multiple abnormalities: "Multiple abnormal values observed -> Requires clinical correlation"
 
 Recommended Focus:
 - Only further evaluation or tests

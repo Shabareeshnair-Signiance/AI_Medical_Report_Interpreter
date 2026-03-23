@@ -138,37 +138,37 @@
 
                         {% if "Critical Findings" in line %}
                             <div class="analysis-card critical large">
-                                <h3>🚨 Critical Findings</h3>
+                                <h3>Critical Findings</h3>
 
                         {% elif "Abnormal Findings" in line %}
                             </div>
                             <div class="analysis-card abnormal large">
-                                <h3>⚠ Abnormal Findings</h3>
+                                <h3>Abnormal Findings</h3>
 
                         {% elif "Normal Findings" in line %}
                             </div>
                             <div class="analysis-card normal">
-                                <h3>✅ Normal Findings</h3>
+                                <h3>Normal Findings</h3>
 
                         {% elif "Patterns Detected" in line %}
                             </div>
                             <div class="analysis-card info">
-                                <h3>📊 Patterns Detected</h3>
+                                <h3>Patterns Detected</h3>
 
                         {% elif "Systems Involved" in line %}
                             </div>
                             <div class="analysis-card info">
-                                <h3>🧬 Systems Involved</h3>
+                                <h3>Systems Involved</h3>
 
                         {% elif "Overall Impression" in line %}
                             </div>
                             <div class="analysis-card highlight full">
-                                <h3>🧠 Overall Impression</h3>
+                                <h3>Overall Impression</h3>
 
                         {% elif "Recommended Focus" in line %}
                             </div>
                             <div class="analysis-card highlight full">
-                                <h3>🎯 Recommended Focus</h3>
+                                <h3>Recommended Focus</h3>
 
                         {% elif line.strip() %}
                             <p class="analysis-line">{{ line }}</p>
@@ -249,11 +249,11 @@
                                         {% if "Test Name:" in line %}
                                             <h3>{{ line }}</h3>
                                         {% elif "What does this test measure?" in line %}
-                                            <p><strong>🧪 What does this test measure?</strong></p>
+                                            <p><strong>What does this test measure?</strong></p>
                                         {% elif "Is this value normal" in line %}
-                                            <p><strong>📊 Status Interpretation</strong></p>
+                                            <p><strong>Status Interpretation</strong></p>
                                         {% elif "Why is this important" in line %}
-                                            <p><strong>❤️ Health Impact</strong></p>
+                                            <p><strong>Health Impact</strong></p>
                                         {% elif line.strip() %}
                                             <p>{{ line }}</p>
                                         {% endif %}

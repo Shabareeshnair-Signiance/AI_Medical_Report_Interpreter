@@ -4,6 +4,38 @@ from langchain_core.output_parsers import StrOutputParser
 from llm.llm_provider import get_llm
 from logger_config import logger
 
+# Guardrails for random chats
+def classify_query_intent(query: str):
+    llm = get_llm()
+
+    if llm is None:
+        return "unknown"
+
+    prompt = f"""
+Classify the user query into one of these categories:
+
+1. medical (related to health, lab report, symptoms, analysis)
+2. non-medical (general knowledge, geography, jokes, etc.)
+
+Only return ONE word: medical OR non-medical
+
+Query: {query}
+"""
+
+    try:
+        response = llm.invoke(prompt)
+        result = response.content.strip().lower()
+
+        if result == "medical":
+            return "medical"
+        elif result == "non-medical":
+            return "non-medical"
+        else:
+            return "unknown"
+
+    except:
+        return "unknown"
+
 
 def report_agent(state: dict):
     """
@@ -139,6 +171,7 @@ ONLY return this format. No JSON. No extra explanation.
         state["analysis"] = "Analysis failed"
         return state
     
+
 # New Chat Function
 
 def report_chat_agent(analysis: str, user_question: str):
@@ -156,6 +189,14 @@ def report_chat_agent(analysis: str, user_question: str):
     try:
         logger.info("Running Report Chat Agent")
 
+        # Guardrail (LLM-based)
+        intent = classify_query_intent(user_question)
+
+        logger.info(f"Query: {user_question} | Intent: {intent}")
+
+        if intent != "medical":    
+            return "I can assist only with medical report-related questions. Please ask about the report."
+        
         llm = get_llm()
 
         if llm is None:

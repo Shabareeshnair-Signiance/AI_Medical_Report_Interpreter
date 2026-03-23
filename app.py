@@ -2,8 +2,10 @@ import os
 import io
 import sys
 from flask import Flask, render_template, request
+from flask import jsonify
 
 from agents.validation_agent import ValidationAgent
+from agents.report_agent import report_chat_agent
 from processing.pdf_reader import read_pdf
 from processing.llm_extractor import llm_extract_medical_data
 from processing.report_parser import parse_medical_report
@@ -21,6 +23,9 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
+# Global Storage for chat
+latest_analysis = ""
+
 # @app.before_first_request
 # def setup():
 init_database()
@@ -32,6 +37,8 @@ validator = ValidationAgent()
 
 @app.route("/", methods=["GET", "POST"])
 def index():
+
+    global latest_analysis
 
     try:
         if request.method == "POST":
@@ -71,6 +78,9 @@ def index():
             if validation_result["is_duplicate"]:
                 existing = validation_result["existing_result"]
 
+                # storing analysis for chat
+                latest_analysis = existing.get("analysis", "")
+
                 return render_template(
                     "main.html",
                     medical_data=existing["medical_data"],
@@ -108,6 +118,9 @@ def index():
 
             result = graph.invoke(state)
 
+            # storing alanlysis for chat
+            latest_analysis = result.get("anlysis", "")
+
             # FORCE ORIGINAL DATA (avoid LLM corruption)
             result["medical_data"] = medical_data
 
@@ -129,6 +142,30 @@ def index():
         logger.error(f"App error: {str(e)}")
         return "Something went wrong"
 
+# chat route
+@app.route("/chat", methods=["POST"])
+def chat():
+
+    global latest_analysis
+
+    try:
+        data = request.get_json()
+        user_question = data.get("message", "")
+
+        if not user_question:
+            return jsonify({"response": "No question provided"})
+        
+        if not latest_analysis:
+            return jsonify({"response": "No report analysis available"})
+        
+        # calling the chat agent
+        response = report_chat_agent(latest_analysis, user_question)
+
+        return jsonify({"response": response})
+    
+    except Exception as e:
+        logger.error(f"Chat route error: {str(e)}")
+        return jsonify({"response": "Chat failed"})
 
 if __name__ == "__main__":
     init_database()

@@ -37,6 +37,38 @@ Query: {query}
         return "unknown"
 
 
+# Classifier to know the query
+def is_query_related_to_report(query: str, analysis: str) -> bool:
+    llm = get_llm()
+
+    if llm is None:
+        return False
+
+    prompt = f"""
+You are checking whether a doctor's question is related to a medical report.
+
+Report Analysis:
+{analysis}
+
+Question:
+{query}
+
+Answer ONLY "yes" or "no"
+
+Is the question related to the report?
+"""
+
+    try:
+        response = llm.invoke(prompt)
+        result = response.content.strip().lower()
+
+        return result == "yes"
+
+    except:
+        return False
+
+
+# Report agent 
 def report_agent(state: dict):
     """
     Production-ready Doctor-Focused Report Agent (Multi-test, UI-friendly output)
@@ -172,6 +204,16 @@ ONLY return this format. No JSON. No extra explanation.
         return state
     
 
+def is_report_related(query: str) -> bool:
+    keywords = [
+        "report", "summary", "analysis", "result",
+        "finding", "value", "test", "level",
+        "normal", "abnormal", "explain"
+    ]
+
+    query = query.lower()
+    return any(word in query for word in keywords)
+
 # New Chat Function
 
 def report_chat_agent(analysis: str, user_question: str):
@@ -194,8 +236,16 @@ def report_chat_agent(analysis: str, user_question: str):
 
         logger.info(f"Query: {user_question} | Intent: {intent}")
 
-        if intent != "medical":    
+        logger.info(f"Query: {user_question} | Intent: {intent}")
+
+        # Allow if medical OR report-related
+        if intent != "medical" and not is_report_related(user_question):
             return "I can assist only with medical report-related questions. Please ask about the report."
+        #if intent != "medical":    
+         #   return "I can assist only with medical report-related questions. Please ask about the report."
+        
+        if not is_query_related_to_report(user_question, analysis):
+            return "Please ask questions related to this report only."
         
         llm = get_llm()
 

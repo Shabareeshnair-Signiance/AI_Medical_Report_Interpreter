@@ -13,6 +13,8 @@ from graph.agent_graph import build_medical_graph
 from storage.database import init_database, save_report, generate_file_hash_from_bytes
 from logger_config import logger
 
+
+
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
@@ -23,8 +25,6 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
-# Global Storage for chat
-#latest_analysis = ""
 
 # @app.before_first_request
 # def setup():
@@ -169,5 +169,4 @@ def chat():
         return jsonify({"response": "Chat failed"})
 
 if __name__ == "__main__":
-    init_database()
     app.run(debug=True)

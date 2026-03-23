@@ -175,11 +175,25 @@
                         {% endif %}
 
                     {% endfor %}
+                    </div>
+
+                    <!-- CHATBOX SECTION -->
+                    <div class="chatbox-section">
+
+                        <h3>Ask About This Report</h3>
+
+                        <div id="chatbox" style="max-height:250px; overflow-y:auto; margin-bottom:10px;"></div>
+
+                        <div style="display:flex; gap:10px;">
+                            <input type="text" id="userInput" placeholder="Ask a question..." style="flex:1; padding:8px;">
+                            <button onclick="sendMessage()">Send</button>
+                        </div>
 
                     </div>
                 </div>
             </div>
             {% endif %}
+
 
             <!-- UPDATED EXPLANATION -->
             {% if explanation %}
@@ -304,6 +318,40 @@
         {% endif %}
 
     </div>
+<script>
+async function sendMessage() {
+    const input = document.getElementById("userInput");
+    const message = input.value.trim();
 
+    if (!message) return;
+
+    const chatbox = document.getElementById("chatbox");
+
+    // User message
+    chatbox.innerHTML += `<div><b>You:</b> ${message}</div>`;
+
+    input.value = "";
+
+    try {
+        const response = await fetch("/chat", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ message: message })
+        });
+
+        const data = await response.json();
+
+        // AI response
+        chatbox.innerHTML += `<div><b>AI:</b> ${data.response}</div>`;
+
+        chatbox.scrollTop = chatbox.scrollHeight;
+
+    } catch (error) {
+        chatbox.innerHTML += `<div>Error occurred</div>`;
+    }
+}
+</script>
 </body>
 </html>

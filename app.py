@@ -14,7 +14,6 @@ from storage.database import init_database, save_report, generate_file_hash_from
 from logger_config import logger
 
 
-
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
@@ -169,4 +168,5 @@ def chat():
         return jsonify({"response": "Chat failed"})
 
 if __name__ == "__main__":
+    init_database()
     app.run(debug=True)

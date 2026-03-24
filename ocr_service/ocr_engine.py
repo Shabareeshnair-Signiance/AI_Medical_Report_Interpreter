@@ -68,6 +68,6 @@ def extract_text(file_path):
 
 # Testing the OCR model
 if __name__ == "__main__":
-    file_path = "sample_data/Medical_report.pdf"
+    file_path = "ocr_sample_data/Medical_report.pdf"
     text = extract_text(file_path)
     print(text)

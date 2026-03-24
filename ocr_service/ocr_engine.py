@@ -3,19 +3,21 @@ from paddleocr import PaddleOCR
 from pdf2image import convert_from_path
 import os
 
+os.environ["FLAGS_use_mkldnn"] = "0"
+
 # basic logging setup
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 # initializing OCR model (load once)
-ocr = PaddleOCR(use_angle_cls=True, lang="en")
+ocr = PaddleOCR(use_textline_orientation=True, lang="en")
 
 
 def extract_text_from_image(image_path):
     try:
         logger.info(f"Processing image: {image_path}")
 
-        result = ocr.ocr(image_path)
+        result = ocr.predict(image_path)
 
         extracted_text = []
         for line in result[0]:

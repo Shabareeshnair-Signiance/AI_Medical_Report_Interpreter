@@ -6,8 +6,10 @@ openai
 faiss-cpu
 sentence-transformers
 pdfplumber
-paddleocr
-paddlepaddle
+# paddleocr
+# paddlepaddle
+easyocr
+opencv-python
 pdf2image
 python-dotenv
 numpy

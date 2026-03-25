@@ -7,9 +7,12 @@ def extract_test_lines(text: str):
     current_block = []
 
     for line in lines:
-        # If line has a number → likely start of a test
-        if re.search(r'\d', line):
-            # Save previous block
+
+        has_number = bool(re.search(r'\d', line))
+        has_unit = bool(re.search(r'(mg|dl|g|mmol|%)', line.lower()))
+
+        # Start new block if line has number or looks like value/unit
+        if has_number or has_unit:
             if current_block:
                 grouped_blocks.append(" ".join(current_block))
                 current_block = []
@@ -17,7 +20,6 @@ def extract_test_lines(text: str):
             current_block.append(line)
 
         else:
-            # Continue adding related lines (unit, test name)
             if current_block:
                 current_block.append(line)
 
@@ -25,10 +27,10 @@ def extract_test_lines(text: str):
     if current_block:
         grouped_blocks.append(" ".join(current_block))
 
-    # Remove very long paragraphs (comments)
+    # Remove long paragraph blocks (comments)
     filtered_blocks = [
         block for block in grouped_blocks
-        if len(block) < 150
+        if len(block) < 200 and len(block.split()) < 25
     ]
 
     return "\n".join(filtered_blocks)

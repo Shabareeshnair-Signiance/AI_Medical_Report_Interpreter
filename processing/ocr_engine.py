@@ -14,7 +14,10 @@ reader = easyocr.Reader(['en'], gpu=False)
 def preprocess_image(image):
     """Converting image to grayscale for better OCR"""
     image = np.array(image)
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    if len(image.shape) == 3:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = image
 
     # Improving contrast
     gray = cv2.equalizeHist(gray)
@@ -23,7 +26,7 @@ def preprocess_image(image):
     gray = cv2.GaussianBlur(gray, (5, 5), 0)
 
     # Threshold
-    _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
+    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
     return thresh   
 
@@ -63,9 +66,15 @@ def extract_text_from_pdf(pdf_path):
             logger.info(f"Processing page {i+1}")
 
             image = preprocess_image(page)
-            results = reader.readtext(image, detail=0)
+            results = reader.readtext(image, detail=0, paragraph=True)
 
-            full_text += " ".join(results) + "\n"
+            page_text = " ".join(results)
+
+            # cleaning + normalizing
+            page_text = " ".join(page_text.split())
+            page_text = page_text.lower()
+
+            full_text += f"\n--- page {i+1} ---\n{page_text}\n"
         return full_text.strip()
     
     except Exception as e:

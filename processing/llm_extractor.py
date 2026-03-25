@@ -1,5 +1,6 @@
 import json
 from logger_config import logger
+from utils.test_line_extractor import extract_test_lines
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
@@ -13,6 +14,8 @@ def llm_extract_medical_data(report_text: str):
 
     try:
         logger.info("Starting LLM Extraction")
+
+        filtered_text = extract_test_lines(report_text)
 #Extract ALL lab test results from the report below.
         prompt = f"""
 You are a medical data extraction assistant.
@@ -64,7 +67,7 @@ Rules:
 - Only EXTRACT actual lab tests
 
 Report:
-{report_text}
+{filtered_text}
 """
         #Do not skip tests
         response = client.chat.completions.create(

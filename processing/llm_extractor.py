@@ -13,10 +13,11 @@ def llm_extract_medical_data(report_text: str):
 
     try:
         logger.info("Starting LLM Extraction")
+#Extract ALL lab test results from the report below.
         prompt = f"""
 You are a medical data extraction assistant.
 
-Extract ALL lab test results from the report below.
+Extract ONLY the lab tests that are clearly present in the report.
 
 Return ONLY valid JSON.
 Do NOT add explanations, comments, or markdown.
@@ -33,6 +34,14 @@ Format:
     "status": ""
   }}
 ]
+
+OCR-SPECIFIC RULES (VERY IMPORTANT):
+- The OCR text may be highly noisy and distorted
+- Extract tests ONLY if BOTH test name AND numeric value are clearly present
+- Ignore lines that look like headers, paragraphs, or random text
+- If you are not confident a line represents a real lab test → SKIP it
+- Prefer precision over recall (better to return fewer correct tests than many wrong ones)
+- Do NOT return generic medical tests unless they are explicitly found in the text
 
 Rules:
 - Extract every test separately

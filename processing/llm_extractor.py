@@ -1,6 +1,7 @@
 import json
 from logger_config import logger
 from utils.test_line_extractor import extract_test_lines
+from utils.range_extractor import extract_reference_ranges
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
@@ -16,6 +17,9 @@ def llm_extract_medical_data(report_text: str):
         logger.info("Starting LLM Extraction")
 
         filtered_text = extract_test_lines(report_text)
+
+        ranges = extract_reference_ranges(report_text)
+        range_text = "\n".join(ranges)
 #Extract ALL lab test results from the report below.
         prompt = f"""
 You are a medical data extraction assistant.
@@ -95,12 +99,19 @@ IMPORTANT RULES:
 - DO NOT invent missing values
 - If anything is unclear -> skip or mark "N/A"
 
-8. OUTPUT
+8. Rule:
+- Use reference ranges ONLY from "Possible Reference Ranges" section if not directly linked
+- Match the most relevant range to each test based on context
+
+9. OUTPUT
 - Each test must be a separate JSON object
 - Keep output clean and structured
 
 Report:
 {filtered_text}
+
+Possible Reference Ranges (from report):
+{range_text}
 """
         #Do not skip tests
         response = client.chat.completions.create(

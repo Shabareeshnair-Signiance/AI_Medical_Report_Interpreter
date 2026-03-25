@@ -18,7 +18,10 @@ You are a medical data extraction assistant.
 
 Extract ALL lab test results from the report below.
 
-Return ONLY valid JSON (no explanation, no text outside JSON).
+Return ONLY valid JSON.
+Do NOT add explanations, comments, or markdown.
+Do NOT wrap in ```json.
+Output MUST be directly parseable using json.loads().
 
 Format:
 [
@@ -38,12 +41,15 @@ Rules:
 - If status not given, infer (Low/Normal/High) based on range
 - If range missing, keep "N/A"
 - If unit missing, keep ""
+- OCR text may contain spelling mistakes, fix them logically (e.g., "crealinine" -> "creatinine")
+- Ignore headers, hospital info, doctor names, IDs
+- Only EXTRACT actual lab tests
 
 Report:
 {report_text}
 """
         response = client.chat.completions.create(
-            model="gpt-5-mini",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "user", "content": prompt}
             ]
@@ -54,7 +60,13 @@ Report:
         # cleaning JSON very important
         content = content.replace("```json", "").replace("```", "").strip()
 
-        data = json.loads(content)
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON from LLM")
+            return {"lab_results": []}
+        
+        #data = json.loads(content)
 
         # converting to your existing format
         formatted = []
@@ -76,16 +88,17 @@ Report:
     
 
 # testing the extraction to see if it's working or not
-from processing.pdf_reader import read_pdf
+from processing.ocr_engine import extract_text
 
 if __name__ == "__main__":
     #file_path = "sample_data/sample_blood_report.pdf"
     #file_path = "sample_data/sample_medical_report_text.pdf"
     #file_path = "sample_data/Sample Report.pdf"
-    file_path = "sample_data/Glucose_report.pdf"
+    file_path = "sample_data/Medical_report.pdf"
 
-    text = read_pdf(file_path)
-    print("\n--- Extracted Text ---\n")
+    print("\n--- OCR TEXT ---\n")
+
+    text = extract_text(file_path)
     print(text[:1000])
 
     result = llm_extract_medical_data(text)

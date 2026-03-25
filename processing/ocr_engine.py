@@ -25,8 +25,15 @@ def preprocess_image(image):
     # reducing noise
     gray = cv2.GaussianBlur(gray, (5, 5), 0)
 
-    # Threshold
-    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    # adaptive threshold
+    thresh = cv2.adaptiveThreshold(
+        gray, 255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        11, 2
+    )
+    kernel = np.ones((1, 1), np.uint8)
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
 
     return thresh   
 
@@ -39,12 +46,12 @@ def extract_text_from_image(image_path):
         image = Image.open(image_path)
         image = preprocess_image(image)
 
-        results = reader.readtext(image, detail=0, paragraph=True)
-        text = " ".join(results)
+        results = reader.readtext(image, detail=0)
+        text = "\n".join(results)
 
         # cleaning + normalizing
         text = " ".join(text.split())
-        text = text.lower()
+        text = text.strip()
 
         return text
     
@@ -58,7 +65,7 @@ def extract_text_from_pdf(pdf_path):
     try:
         logger.info(f"Processing PDF: {pdf_path}")
 
-        pages = convert_from_path(pdf_path)
+        pages = convert_from_path(pdf_path, dpi=300)
 
         full_text = ""
 
@@ -66,13 +73,13 @@ def extract_text_from_pdf(pdf_path):
             logger.info(f"Processing page {i+1}")
 
             image = preprocess_image(page)
-            results = reader.readtext(image, detail=0, paragraph=True)
+            results = reader.readtext(image, detail=0)
 
-            page_text = " ".join(results)
+            page_text = "\n".join(results)
 
             # cleaning + normalizing
             page_text = " ".join(page_text.split())
-            page_text = page_text.lower()
+            page_text = page_text.strip()
 
             full_text += f"\n--- page {i+1} ---\n{page_text}\n"
         return full_text.strip()
@@ -93,7 +100,7 @@ def extract_text(file_path):
         return extract_text_from_pdf(file_path)
     
     else:
-        logger.warning(f"Unsupported fiile format: {ext}")
+        logger.warning(f"Unsupported file format: {ext}")
         return ""
     
 

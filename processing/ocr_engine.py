@@ -15,7 +15,17 @@ def preprocess_image(image):
     """Converting image to grayscale for better OCR"""
     image = np.array(image)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    return gray
+
+    # Improving contrast
+    gray = cv2.equalizeHist(gray)
+
+    # reducing noise
+    gray = cv2.GaussianBlur(gray, (5, 5), 0)
+
+    # Threshold
+    _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
+
+    return thresh   
 
 # Image OCR
 def extract_text_from_image(image_path):
@@ -26,8 +36,12 @@ def extract_text_from_image(image_path):
         image = Image.open(image_path)
         image = preprocess_image(image)
 
-        results = reader.readtext(image, detail=0)
+        results = reader.readtext(image, detail=0, paragraph=True)
         text = " ".join(results)
+
+        # cleaning + normalizing
+        text = " ".join(text.split())
+        text = text.lower()
 
         return text
     

@@ -1,4 +1,6 @@
 import json
+import re
+from utils.range_mapper import match_range
 from logger_config import logger
 from utils.test_line_extractor import extract_test_lines
 from utils.range_extractor import extract_reference_ranges
@@ -136,12 +138,45 @@ Possible Reference Ranges (from report):
 
         # converting to your existing format
         formatted = []
+
         for item in data:
+            test_name = item.get("test", "")
+            value = item.get("value", "")
+            unit = item.get("unit", "")
+
+            # Extract numeric value
+            num_match = re.search(r'\d+\.?\d*', value)
+            num_value = num_match.group() if num_match else ""
+
+            # MATCH RANGE USING CODE
+            matched_range = match_range(num_value, ranges)
+
+            # CALCULATE STATUS USING CODE
+            status = "Unknown"
+
+            if matched_range != "N/A" and num_value:
+                nums = [float(n) for n in re.findall(r'\d+\.?\d*', matched_range)]
+                val = float(num_value)
+
+                if len(nums) == 2:
+                    if val < nums[0]:
+                        status = "Low"
+                    elif val > nums[1]:
+                        status = "High"
+                    else:
+                        status = "Normal"
+
+                elif "<" in matched_range:
+                    status = "High" if val > nums[0] else "Normal"
+
+                elif ">" in matched_range:
+                    status = "Low" if val < nums[0] else "Normal"
+
             formatted.append({
-                "test": item.get("test", ""),
-                "value": f"{item.get('value', '')} {item.get('unit', '')}".strip(),
-                "reference_range": item.get("reference_range", "N/A"),
-                "status": item.get("status", "Unknown")
+                "test": test_name,
+                "value": f"{num_value} {unit}".strip(),
+                "reference_range": matched_range,
+                "status": status
             })
 
         logger.info("LLM extraction completed")

@@ -20,11 +20,10 @@ def llm_extract_medical_data(report_text: str):
         prompt = f"""
 You are a medical data extraction assistant.
 
-Extract ONLY the lab tests that are clearly present in the report.
+Extract ONLY clearly visible lab test results from OCR text.
 
 Return ONLY valid JSON.
 Do NOT add explanations, comments, or markdown.
-Do NOT wrap in ```json.
 Output MUST be directly parseable using json.loads().
 
 Format:
@@ -38,33 +37,67 @@ Format:
   }}
 ]
 
-OCR-SPECIFIC RULES (VERY IMPORTANT):
-- The input text may contain OCR errors (spelling mistakes, broken words, missing characters)
-- Correct obvious OCR mistakes logically (e.g., "crealinine" -> "creatinine")
-- If a test name and value are partially readable but slightly distorted, infer the correct test cautiously
-- If the text is too unclear to confidently identify a test -> skip it
+IMPORTANT RULES:
 
-VALUE RULES:
-- Extract the exact numeric value (do not change it unless clearly OCR error)
-- Extract unit if present, otherwise keep ""
-- Extract reference range if present, otherwise "N/A"
+1. VALID TEST IDENTIFICATION
+- A valid test must contain:
+  • Test name
+  • Numeric value
+- Ignore incomplete or unclear entries
+- Ignore comments, paragraphs, patient details
 
-STATUS RULE:
-- If reference range is available:
-  - value < range -> Low
-  - value > range -> High
-  - otherwise -> Normal
-- If no range -> status = "Unknown"
+2. OCR HANDLING (STRICT)
+- Text may be broken across lines
+- Combine related parts logically:
+  Example:
+    "0.87" + "mg/dl" + "Creatinine"
+    -> Creatinine | 0.87 | mg/dl
 
-Rules:
-- Extract every test separately
-- Do not summarize
-- If status not given, infer (Low/Normal/High) based on range
-- If range missing, keep "N/A"
-- If unit missing, keep ""
-- OCR text may contain spelling mistakes, fix them logically (e.g., "crealinine" -> "creatinine")
-- Ignore headers, hospital info, doctor names, IDs
-- Only EXTRACT actual lab tests
+- Fix only obvious OCR mistakes
+- If not confident → skip
+
+3. VALUE EXTRACTION
+- Extract only the numeric value (e.g., 0.87, 178)
+- Do NOT include unit inside value
+
+4. UNIT EXTRACTION
+- Extract unit separately (mg/dl, g/dl, %, etc.)
+- If missing -> ""
+
+5. REFERENCE RANGE (VERY IMPORTANT)
+- Extract ONLY if clearly present NEAR the test
+- It may appear as:
+    • "Reference Range"
+    • "Biological Reference Range"
+    • "Normal Range"
+    • Inline values like "0.6 - 1.2" or "<100"
+
+- DO NOT take random numbers from other parts
+- If not clearly linked to the test -> "N/A"
+
+6. STATUS CALCULATION (STRICT)
+- If reference range is present:
+    -> Compare numeric value:
+
+    Cases:
+    - "X - Y" -> Normal if X ≤ value ≤ Y
+    - "<X" -> High if value > X
+    - ">X" -> Low if value < X
+
+- If report explicitly shows High/Low/Normal for that test:
+    -> Use it ONLY if clearly aligned with that test
+
+- If no valid range -> "Unknown"
+
+7. STRICT ANTI-HALLUCINATION
+- DO NOT guess reference ranges
+- DO NOT reuse range from another test
+- DO NOT invent missing values
+- If anything is unclear -> skip or mark "N/A"
+
+8. OUTPUT
+- Each test must be a separate JSON object
+- Keep output clean and structured
 
 Report:
 {filtered_text}

@@ -98,12 +98,12 @@ def extract_text(file_path):
     
 
 # Testing the OCR service
-if __name__ == "__main__":
-    test_file = "sample_data/Medical_report.pdf"
+# if __name__ == "__main__":
+#     test_file = "sample_data/Medical_report.pdf"
 
-    logger.info("Starting OCR Test...")
+#     logger.info("Starting OCR Test...")
 
-    text = extract_text(test_file)
+#     text = extract_text(test_file)
 
-    print("\n---- OCR Output ----\n")
-    print(text[:1000])
+#     print("\n---- OCR Output ----\n")
+#     print(text[:1000])

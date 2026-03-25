@@ -134,19 +134,26 @@ def parse_medical_report(report_text):
 
 
 # ---------------- TEST ----------------
-# from processing.pdf_reader import read_pdf
+# from processing.ocr_engine import extract_text
 
 # if __name__ == "__main__":
 
-#     file_path = "sample_data/Glucose_report.pdf"
+#     file_path = "sample_data/Medical_report.pdf"
 
-#     extracted_text = read_pdf(file_path)
+#     print("\n==== Running OCR + Parser Test ====\n")
 
-#     print("\n=== EXTRACTED TEXT ===\n")
-#     print(extracted_text[:1000])
+#     # ocr
+#     ocr_text = extract_text(file_path)
 
-#     result = parse_medical_report(extracted_text)
+#     print("\n==== OCR Text (first 1000 chars) ====\n")
+#     print(ocr_text[:1000])
 
-#     print("\n=== PARSED OUTPUT ===\n")
-#     for item in result["lab_results"]:
-#         print(item)
+#     # parse
+#     result = parse_medical_report(ocr_text)
+#     print("\n=== Parsed Output ===\n")
+
+#     if result.get("lab_results"):
+#         for item in result["lab_results"]:
+#             print(item)
+#     else:
+#         print("No lab resuls extracted")

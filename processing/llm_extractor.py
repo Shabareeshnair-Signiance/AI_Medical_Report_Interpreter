@@ -36,17 +36,26 @@ Format:
 ]
 
 OCR-SPECIFIC RULES (VERY IMPORTANT):
-- The OCR text may be highly noisy and distorted
-- Extract tests ONLY if BOTH test name AND numeric value are clearly present
-- Ignore lines that look like headers, paragraphs, or random text
-- If you are not confident a line represents a real lab test → SKIP it
-- Prefer precision over recall (better to return fewer correct tests than many wrong ones)
-- Do NOT return generic medical tests unless they are explicitly found in the text
+- The input text may contain OCR errors (spelling mistakes, broken words, missing characters)
+- Correct obvious OCR mistakes logically (e.g., "crealinine" -> "creatinine")
+- If a test name and value are partially readable but slightly distorted, infer the correct test cautiously
+- If the text is too unclear to confidently identify a test -> skip it
+
+VALUE RULES:
+- Extract the exact numeric value (do not change it unless clearly OCR error)
+- Extract unit if present, otherwise keep ""
+- Extract reference range if present, otherwise "N/A"
+
+STATUS RULE:
+- If reference range is available:
+  - value < range -> Low
+  - value > range -> High
+  - otherwise -> Normal
+- If no range -> status = "Unknown"
 
 Rules:
 - Extract every test separately
 - Do not summarize
-- Do not skip tests
 - If status not given, infer (Low/Normal/High) based on range
 - If range missing, keep "N/A"
 - If unit missing, keep ""
@@ -57,6 +66,7 @@ Rules:
 Report:
 {report_text}
 """
+        #Do not skip tests
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -97,7 +107,8 @@ Report:
     
 
 # testing the extraction to see if it's working or not
-from processing.ocr_engine import extract_text
+#from processing.ocr_engine import extract_text
+from processing.text_loader import get_text
 
 if __name__ == "__main__":
     #file_path = "sample_data/sample_blood_report.pdf"
@@ -107,7 +118,8 @@ if __name__ == "__main__":
 
     print("\n--- OCR TEXT ---\n")
 
-    text = extract_text(file_path)
+    text = get_text(file_path)
+    #text = extract_text(file_path)
     print(text[:1000])
 
     result = llm_extract_medical_data(text)

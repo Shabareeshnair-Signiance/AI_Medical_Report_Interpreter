@@ -1,21 +1,34 @@
 import re
 
 def extract_test_lines(text: str):
-    lines = text.split("\n")
+    lines = [line.strip() for line in text.split("\n") if line.strip()]
 
-    filtered = []
+    grouped_blocks = []
+    current_block = []
 
     for line in lines:
-        line = line.strip()
-
-        # Skip empty
-        if not line:
-            continue
-
-        # Keep lines with numbers (tests usually have values)
+        # If line has a number → likely start of a test
         if re.search(r'\d', line):
-            # Remove long paragraph lines (comments)
-            if len(line) < 120:
-                filtered.append(line)
+            # Save previous block
+            if current_block:
+                grouped_blocks.append(" ".join(current_block))
+                current_block = []
 
-    return "\n".join(filtered)
+            current_block.append(line)
+
+        else:
+            # Continue adding related lines (unit, test name)
+            if current_block:
+                current_block.append(line)
+
+    # Add last block
+    if current_block:
+        grouped_blocks.append(" ".join(current_block))
+
+    # Remove very long paragraphs (comments)
+    filtered_blocks = [
+        block for block in grouped_blocks
+        if len(block) < 150
+    ]
+
+    return "\n".join(filtered_blocks)

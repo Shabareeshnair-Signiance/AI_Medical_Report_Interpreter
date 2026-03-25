@@ -1,75 +1,86 @@
-import logging
-from paddleocr import PaddleOCR
+import easyocr
 from pdf2image import convert_from_path
+from PIL import Image
+import numpy as np
+import cv2
 import os
-
-os.environ["FLAGS_use_mkldnn"] = "0"
-
-# basic logging setup
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
-
-# initializing OCR model (load once)
-ocr = PaddleOCR(use_textline_orientation=True, lang="en")
+from logger_config import logger
 
 
+# OCR reader initiating by loading once
+reader = easyocr.Reader(['en'], gpu=False)
+
+# Image preprocessing
+def preprocess_image(image):
+    """Converting image to grayscale for better OCR"""
+    image = np.array(image)
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    return gray
+
+# Image OCR
 def extract_text_from_image(image_path):
+    """Extracting text from image file"""
     try:
         logger.info(f"Processing image: {image_path}")
 
-        result = ocr.predict(image_path)
+        image = Image.open(image_path)
+        image = preprocess_image(image)
 
-        extracted_text = []
-        for line in result[0]:
-            extracted_text.append(line[1][0])
-
-        text = "\n".join(extracted_text)
-        logger.info("Image OCR completed successfully")
+        results = reader.readtext(image, detail=0)
+        text = " ".join(results)
 
         return text
-
+    
     except Exception as e:
-        logger.error(f"Error Processing Image: {str(e)}")
+        logger.error(f"Image OCR failed: {str(e)}")
         return ""
-
-
+    
+# PDF OCR
 def extract_text_from_pdf(pdf_path):
+    """Extracting text from scanned PDF"""
     try:
         logger.info(f"Processing PDF: {pdf_path}")
 
         pages = convert_from_path(pdf_path)
-        full_text = []
+
+        full_text = ""
 
         for i, page in enumerate(pages):
-            temp_image = f"temp_page_{i}.png"
-            page.save(temp_image, "PNG")
+            logger.info(f"Processing page {i+1}")
 
-            logger.info(f"Processing page: {i + 1}")
+            image = preprocess_image(page)
+            results = reader.readtext(image, detail=0)
 
-            text = extract_text_from_image(temp_image)
-            full_text.append(text)
-
-            os.remove(temp_image)
-
-        logger.info("PDF OCR completed successfully")
-        return "\n\n".join(full_text)
-
+            full_text += " ".join(results) + "\n"
+        return full_text.strip()
+    
     except Exception as e:
-        logger.error(f"Error processing PDF: {str(e)}")
+        logger.error(f"PDF OCR failed: {str(e)}")
         return ""
-
-
+    
+# Building Main OCR Function
 def extract_text(file_path):
-    logger.info(f"Starting OCR for file: {file_path}")
+    """Handling both image and PDF"""
+    ext = os.path.splitext(file_path)[1].lower()
 
-    if file_path.lower().endswith(".pdf"):
-        return extract_text_from_pdf(file_path)
-    else:
+    if ext in ['.jpg', '.jpeg', '.png']:
         return extract_text_from_image(file_path)
+    
+    elif ext == '.pdf':
+        return extract_text_from_pdf(file_path)
+    
+    else:
+        logger.warning(f"Unsupported fiile format: {ext}")
+        return ""
+    
 
-
-# Testing the OCR model
+# Testing the OCR service
 if __name__ == "__main__":
-    file_path = "ocr_sample_data/Medical_report.pdf"
-    text = extract_text(file_path)
-    print(text)
+    test_file = "sample_data/Medical_report.pdf"
+
+    logger.info("Starting OCR Test...")
+
+    text = extract_text(test_file)
+
+    print("\n---- OCR Output ----\n")
+    print(text[:1000])

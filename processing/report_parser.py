@@ -134,7 +134,6 @@ def parse_medical_report(report_text):
 
 
 # ---------------- TEST ----------------
-# from processing.ocr_engine import extract_text
 
 # if __name__ == "__main__":
 

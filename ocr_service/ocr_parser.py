@@ -84,46 +84,77 @@ def extract_test_name(line):
 # Main OCR parser
 def parse_ocr_medical_report(report_text):
     try:
-        logger.info("Starting OCR parsing (multi-line aware)")
+        logger.info("Starting OCR parsing (SECTION-AWARE MODE)")
 
         lines = [clean_line(l) for l in report_text.split("\n") if l.strip()]
         medical_data = []
 
+        in_table = False
+
         i = 0
-        while i < len(lines) - 2:
+        while i < len(lines):
 
-            line1 = lines[i]
-            line2 = lines[i+1]
-            line3 = lines[i+2]
+            line = lines[i].lower()
 
-            # Skip noise
-            if any(word in line3.lower() for word in NON_TEST_KEYWORDS):
+            # START parsing only after this
+            if "biochemistry" in line or "test name" in line:
+                in_table = True
                 i += 1
                 continue
 
-            nums = extract_numbers(line1)
+            # STOP parsing after comments
+            if any(word in line for word in ["comments", "clinical", "note", "high levels", "low levels"]):
+                break
 
-            # Pattern: value → unit → test name
+            if not in_table:
+                i += 1
+                continue
+
+            # -------- ACTUAL EXTRACTION --------
+
+            nums = extract_numbers(lines[i])
+
             if nums and len(nums) == 1:
                 value = nums[0]
-                unit = detect_unit(line2)
-                test_name = line3
 
-                if unit and len(test_name) > 3:
+                unit = ""
+                for j in range(i+1, min(i+4, len(lines))):
+                    unit = detect_unit(lines[j])
+                    if unit:
+                        break
 
-                    test_name = re.sub(r"[^a-zA-Z\s]", "", test_name).title()
-
-                    medical_data.append({
-                        "test": test_name,
-                        "value": f"{value} {unit}",
-                        "reference_range": "N/A",
-                        "status": "Unknown"
-                    })
-
-                    logger.info(f"Extracted {test_name}: {value} {unit}")
-
-                    i += 3
+                if not unit:
+                    i += 1
                     continue
+
+                test_name = None
+                for k in range(j+1, min(j+4, len(lines))):
+                    candidate = lines[k]
+
+                    if any(word in candidate.lower() for word in NON_TEST_KEYWORDS):
+                        continue
+
+                    if len(candidate.split()) <= 6:
+                        test_name = candidate
+                        break
+
+                if not test_name:
+                    i += 1
+                    continue
+
+                test_name = re.sub(r"[^a-zA-Z\s]", "", test_name).title()
+
+                medical_data.append({
+                    "test": test_name,
+                    "value": f"{value} {unit}",
+                    "reference_range": "N/A",
+                    "status": "Unknown"
+                })
+
+                logger.info(f"Extracted {test_name}: {value} {unit}")
+
+                i = k
+                continue
 
             i += 1
 
@@ -138,7 +169,7 @@ def parse_ocr_medical_report(report_text):
 
 # testing the ocr parser code
 if __name__ == "__main__":
-    from ocr_engine import extract_text
+    from ocr_service.ocr_engine import extract_text
 
     file_path = "sample_data/Medical_report.pdf"
 
@@ -159,4 +190,4 @@ if __name__ == "__main__":
             print(item)
 
     else:
-        print("No lab results extracted")
+        print("No lab results ext")

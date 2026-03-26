@@ -4,6 +4,7 @@ import sys
 from flask import Flask, render_template, request
 from flask import jsonify
 
+from ocr_service.ocr_llm_extractor import run_ocr_pipeline
 from agents.validation_agent import ValidationAgent
 from agents.report_agent import report_chat_agent
 from processing.pdf_reader import read_pdf
@@ -92,6 +93,35 @@ def index():
             # PROCESSING
             report_text = read_pdf(file_path)
 
+            # OCR fallback (only if PDF text is weak)
+            if not report_text or len(report_text.strip()) < 50:
+                logger.warning("PDF parsing weak -> switching to OCR pipeline")
+
+                ocr_result = run_ocr_pipeline(file_path)
+
+                # Directly use OCR structured output
+                medical_data = ocr_result
+
+                state = {
+                    "lab_results": medical_data.get("lab_results", [])
+                }
+
+                result = graph.invoke(state)
+
+                result["medical_data"] = medical_data
+
+                # SAVE (same DB, no change)
+                save_report(file_hash, result)
+
+                return render_template(
+                    "main.html",
+                    medical_data=result["medical_data"],
+                    analysis=result["analysis"],
+                    explanation=result["explanation"],
+                    guidance=result["guidance"],
+                    validation=validation_result
+                )
+
             # Trying Regex pattern
             parsed_data = parse_medical_report(report_text)
             lab_results = parsed_data.get("lab_results", [])
@@ -114,6 +144,9 @@ def index():
             state = {
                 "lab_results": medical_data.get("lab_results", [])
             }
+
+            state["source"] = "ocr"
+            state["confidence"] = "low"
 
             result = graph.invoke(state)
 

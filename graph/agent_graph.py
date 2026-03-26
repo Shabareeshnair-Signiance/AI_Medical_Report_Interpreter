@@ -85,6 +85,10 @@ def run_medical_pipeline(file_path: str):
             "lab_results": lab_results
         }
 
+        # ADD metadata (safe extension)
+        state["source"] = "pdf"   # default
+        state["confidence"] = "high"
+
         result = graph.invoke(state)
 
         logger.info("Pipeline execution completed")

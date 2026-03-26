@@ -5,6 +5,7 @@ import hashlib
 from logger_config import logger
 from storage.database import check_existing_report
 from processing.pdf_reader import read_pdf
+from ocr_service.ocr_engine import extract_text
 from processing.llm_validation_extractor import llm_extract_identity
 
 
@@ -22,6 +23,27 @@ class ValidationAgent:
         text = text.replace("—", ":")
         text = re.sub(r'P\s*I\s*D', 'PID', text, flags=re.IGNORECASE)
         return text.strip()
+    
+    # OCR TEXT EXTRACTION
+    def get_text_with_fallback(self, file_path: str) -> str:
+        # Step 1: Try normal PDF text
+        text = read_pdf(file_path)
+
+        # OCR fallback (only if text extraction fails)
+        if not text or len(text.strip()) < 50:
+            logger.warning("PDF text extraction weak -> switching to OCR")
+            ocr_text = extract_text(file_path)
+
+            # Only replace if OCR gives better content
+            if ocr_text and len(ocr_text.strip()) > len(text.strip()):
+                text = ocr_text
+
+        # Step 2: If text is too small → use OCR
+        if not text or len(text.strip()) < 50:
+            logger.warning("Text PDF failed -> switching to OCR for validation")
+            text = extract_text(file_path)
+
+        return text
 
     # CHECK IF MEDICAL REPORT
     def is_medical_report(self, text: str) -> bool:
@@ -59,6 +81,15 @@ class ValidationAgent:
         if match:
             data["user_name"] = match.group(1)
 
+        # FILTER OUT LAB NAMES (DO NOT REMOVE EXISTING LOGIC)
+        invalid_name_keywords = [
+            "lab", "laboratory", "diagnostics", "centre", "center", "clinic", "hospital"
+        ]
+
+        name = data.get("user_name", "")
+        if name and any(word in name.lower() for word in invalid_name_keywords):
+            data["user_name"] = None
+
         # identifiers
         patterns = {
             "reg_no": r'(?:Reg\s*No|Registration\s*No)\s*[:\-]?\s*(\w+)',
@@ -73,6 +104,15 @@ class ValidationAgent:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 data[key] = match.group(1).strip()
+        
+        # FIX: Avoid Reg No picking Lab No value
+        if data.get("reg_no") and data.get("lab_no"):
+
+            reg_clean = re.sub(r'\D', '', data["reg_no"])   # keep only numbers
+            lab_clean = re.sub(r'\D', '', data["lab_no"])
+
+            if reg_clean == lab_clean or "lab" in data["reg_no"].lower():
+                data["reg_no"] = None
 
         return data
 
@@ -122,6 +162,11 @@ class ValidationAgent:
 
         # READ TEXT
         text = read_pdf(file_path)
+
+        # OCR fallback for validation (DO NOT REMOVE EXISTING LINE)
+        if not text or len(text.strip()) < 50:
+            logger.warning("Validation: weak PDF text -> using OCR fallback")
+            text = self.get_text_with_fallback(file_path)
 
         # CHECK MEDICAL REPORT
         if not self.is_medical_report(text):

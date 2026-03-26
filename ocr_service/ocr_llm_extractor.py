@@ -33,7 +33,7 @@ STRICT RULES:
 IMPORTANT:
 - ALWAYS include unit in value (e.g., "0.87 mg/dL")
 - Extract reference range exactly as shown
-- DO NOT guess status unless clearly mentioned
+- DO NOT calculate status
 
 Return ONLY JSON:
 {{
@@ -56,12 +56,8 @@ OCR TEXT:
 def safe_json_load(text):
     try:
         text = text.strip()
-
-        # remove ```json blocks if present
         text = re.sub(r"```json|```", "", text).strip()
-
         return json.loads(text)
-
     except Exception as e:
         logger.error(f"JSON parsing failed: {str(e)}")
         return {"lab_results": []}
@@ -82,7 +78,6 @@ def extract_with_llm(ocr_text):
         )
 
         output = response.choices[0].message.content.strip()
-
         data = safe_json_load(output)
 
         logger.info("LLM extraction successful")
@@ -94,36 +89,47 @@ def extract_with_llm(ocr_text):
         return {"lab_results": []}
 
 
+# -------- HELPER: EXTRACT NUMBER --------
+def extract_number(text):
+    match = re.search(r"\d+\.?\d*", text)
+    return float(match.group()) if match else None
+
+
 # -------- STATUS CALCULATION --------
-def calculate_status(value, reference_range):
+def calculate_status(value_text, reference_range):
     try:
-        value = float(value)
+        value = extract_number(value_text)
 
-        # Case 1: range like 10 - 20
-        if "-" in reference_range:
-            low, high = reference_range.split("-")
-            low = float(low.strip())
-            high = float(high.strip())
+        if value is None:
+            return "Unknown"
 
-            if value < low:
-                return "Low"
-            elif value > high:
-                return "High"
-            else:
-                return "Normal"
+        ref = reference_range.replace(" ", "")
+
+        # Case 1: Range (e.g., 0.6-1.2)
+        if "-" in ref:
+            nums = re.findall(r"\d+\.?\d*", ref)
+            if len(nums) >= 2:
+                low, high = float(nums[0]), float(nums[1])
+
+                if value < low:
+                    return "Low"
+                elif value > high:
+                    return "High"
+                else:
+                    return "Normal"
 
         # Case 2: <100
-        if "<" in reference_range:
-            limit = float(reference_range.replace("<", "").strip())
-            return "High" if value >= limit else "Normal"
+        elif "<" in ref:
+            limit = extract_number(ref)
+            return "Normal" if value < limit else "High"
 
         # Case 3: >126
-        if ">" in reference_range:
-            limit = float(reference_range.replace(">", "").strip())
-            return "High" if value > limit else "Normal"
+        elif ">" in ref:
+            limit = extract_number(ref)
+            return "Normal" if value > limit else "Low"
 
-    except:
-        pass
+    except Exception as e:
+        logger.error(f"Status calculation error: {str(e)}")
 
     return "Unknown"
 
@@ -132,8 +138,8 @@ def calculate_status(value, reference_range):
 def post_process(data):
     for item in data.get("lab_results", []):
         try:
-            val = item["value"].split()[0]
-            ref = item["reference_range"]
+            val = item.get("value", "")
+            ref = item.get("reference_range", "")
 
             item["status"] = calculate_status(val, ref)
 
@@ -178,10 +184,10 @@ def run_ocr_pipeline(file_path):
 
         if is_valid_lab_results(parsed_data):
             logger.info("Regex parsing successful")
-            return post_process(parsed_data)  # ✅ FIXED
+            return post_process(parsed_data)
 
         # Step 2: LLM fallback
-        logger.warning("Regex failed → switching to LLM")
+        logger.warning("Regex failed -> switching to LLM")
 
         llm_result = extract_with_llm(ocr_text)
         llm_result = post_process(llm_result)

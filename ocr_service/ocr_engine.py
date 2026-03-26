@@ -6,8 +6,7 @@ import cv2
 import os
 from logger_config import logger
 
-
-# Load OCR model once
+# Load once globally to avoid repeated heavy initialization
 reader = easyocr.Reader(['en'], gpu=False)
 
 
@@ -61,25 +60,32 @@ def run_best_ocr(image):
 
     all_results = []
 
-    for var in variants:
+    for idx, var in enumerate(variants):
         try:
             result = reader.readtext(var, detail=1)
             all_results.append(result)
-        except:
+        except Exception as e:
+            logger.warning(f"OCR variant {idx+1} failed: {str(e)}")
             continue
 
     if not all_results:
+        logger.warning("All OCR variants failed")
         return []
 
     # Select best result
     best_result = max(all_results, key=score_ocr)
 
+    logger.info(f"Selected OCR variant score: {score_ocr(best_result):.2f}")
+
     # Filter low-confidence text
     clean_lines = [
         text.strip()
         for (_, text, conf) in best_result
-        if conf > 0.5 and len(text.strip()) > 2
+        if conf > 0.4 and len(text.strip()) > 2
     ]
+
+    if not clean_lines:
+        logger.warning("OCR returned no valid text after filtering")
 
     return clean_lines
 
@@ -89,11 +95,10 @@ def extract_text_from_image(image_path):
     try:
         logger.info(f"Processing image: {image_path}")
 
-        image = Image.open(image_path)
+        image = Image.open(image_path).convert("RGB")
 
         clean_lines = run_best_ocr(image)
 
-        # Keep structure (IMPORTANT)
         text = "\n".join(clean_lines)
 
         return text.strip()
@@ -108,6 +113,7 @@ def extract_text_from_pdf(pdf_path):
     try:
         logger.info(f"Processing PDF: {pdf_path}")
 
+        # Requires Poppler installed and added to PATH
         pages = convert_from_path(pdf_path, dpi=300)
 
         full_text = ""
@@ -116,6 +122,9 @@ def extract_text_from_pdf(pdf_path):
             logger.info(f"Processing page {i+1}")
 
             clean_lines = run_best_ocr(page)
+
+            if not clean_lines:
+                logger.warning(f"No text found on page {i+1}")
 
             page_text = "\n".join(clean_lines)
 
@@ -141,3 +150,20 @@ def extract_text(file_path):
     else:
         logger.warning(f"Unsupported file format: {ext}")
         return ""
+
+
+# Testing the OCR Engine
+if __name__ == "__main__":
+    test_file = "sample_data/Medical_report.pdf"
+
+    print("\n==== OCR TEST START ====\n")
+
+    result = extract_text(test_file)
+
+    if result:
+        print("\n==== OCR OUTPUT (First 1000 chars) ====\n")
+        print(result[:1000])
+    else:
+        print("\n No text extracted")
+
+    print("\n==== OCR TEST END ====\n")

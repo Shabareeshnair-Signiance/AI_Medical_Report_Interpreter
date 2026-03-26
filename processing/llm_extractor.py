@@ -1,9 +1,5 @@
 import json
-import re
-#from utils.range_mapper import match_range
 from logger_config import logger
-#from utils.test_line_extractor import extract_test_lines
-#from utils.range_extractor import extract_reference_ranges
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
@@ -18,10 +14,6 @@ def llm_extract_medical_data(report_text: str):
     try:
         logger.info("Starting LLM Extraction")
 
-        #filtered_text = extract_test_lines(report_text)
-
-        #ranges = extract_reference_ranges(report_text)
-        #range_text = "\n".join(ranges)
 #Extract ALL lab test results from the report below.
         prompt = f"""
 You are a medical data extraction assistant.
@@ -117,8 +109,6 @@ Report:
     
 
 # testing the extraction to see if it's working or not
-#from processing.ocr_engine import extract_text
-#from processing.text_loader import get_text
 
 # if __name__ == "__main__":
 #     #file_path = "sample_data/sample_blood_report.pdf"

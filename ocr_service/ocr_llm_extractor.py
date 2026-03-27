@@ -17,6 +17,10 @@ if not api_key:
 
 client = OpenAI(api_key=api_key)
 
+def clean_ocr_text(text):
+    text = re.sub(r'\s+', ' ', text)  # remove extra spaces
+    text = text.replace(" .", ".")
+    return text.strip()
 
 # -------- PROMPT --------
 def build_prompt(ocr_text):
@@ -31,8 +35,9 @@ STRICT RULES:
 - Extract MULTIPLE tests if present
 
 IMPORTANT:
-- ALWAYS include unit in value (e.g., "0.87 mg/dL")
-- Extract reference range exactly as shown
+- Extract value even if unit is missing
+- Extract reference range if available, else leave empty
+- Accept values like "Positive 2+", "Nil", "10-15"
 - DO NOT calculate status
 
 Return ONLY JSON:
@@ -50,7 +55,8 @@ Return ONLY JSON:
 OCR TEXT:
 {ocr_text}
 """
-
+#- ALWAYS include unit in value (e.g., "0.87 mg/dL")
+#- Extract reference range exactly as shown
 
 # -------- SAFE JSON PARSER --------
 def safe_json_load(text):
@@ -202,7 +208,8 @@ def run_ocr_pipeline(file_path):
 # -------- TEST --------
 if __name__ == "__main__":
 
-    file_path = "sample_data/Medical_report.pdf"
+    #file_path = "sample_data/Medical_report.pdf"
+    file_path = "sample_data/Scanned_report.pdf"
 
     print("\n==== OCR PIPELINE TEST ====\n")
 

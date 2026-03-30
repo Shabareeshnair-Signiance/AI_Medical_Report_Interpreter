@@ -204,12 +204,12 @@
             <div class="card">
                 <h2>Explanation</h2>
 
-                {% if "SUMMARY OF RESULTS" in explanation %}
+                {% if explanation is string and "SUMMARY OF RESULTS" in explanation %}
 
                     <!-- MULTI TEST MODE -->
                     <div class="summary-grid">
 
-                        {% set lines = explanation.split('\n') %}
+                        {% set lines = explanation.split('\n') if explanation is string else [] %}
                         {% set current_section = "" %}
 
                         {% for line in lines %}
@@ -253,9 +253,32 @@
                 {% else %}
 
                     <!-- SINGLE / DOUBLE TEST MODE -->
-                    {% set blocks = explanation.split("Test Name:") %}
+                    {% set blocks = explanation.split("Test Name:") if explanation is string else [] %}
 
                     <div class="explanation-grid">
+
+                        {% if explanation is not string %}
+                            {% for item in explanation %}
+                                <div class="explanation-card">
+                                    <h3>{{ item.test }}</h3>
+
+                                    {% set lines = item.content.split('\n') %}
+
+                                    {% for line in lines %}
+                                        {% if "What does this test measure?" in line %}
+                                            <p><strong>What does this test measure?</strong></p>
+                                        {% elif "Is this value normal" in line %}
+                                            <p><strong>Status Interpretation</strong></p>
+                                        {% elif "Why is this important" in line %}
+                                            <p><strong>Health Impact</strong></p>
+                                        {% elif line.strip() %}
+                                            <p>{{ line }}</p>
+                                        {% endif %}
+                                    {% endfor %}
+
+                                </div>
+                            {% endfor %}
+                        {% endif %}
 
                         {% for block in blocks %}
                             {% if block.strip() %}

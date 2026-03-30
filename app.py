@@ -28,7 +28,7 @@ def parse_guidance(text):
             continue
 
         lines = t.strip().split("\n")
-        title = lines[0]
+        title = lines[0].strip()
 
         eat, avoid, exercise = [], [], ""
 
@@ -125,6 +125,9 @@ def index():
                 # storing analysis for chat
                 #latest_analysis = existing.get("analysis", "")
 
+                print(type(existing["guidance"]))
+                print(existing["guidance"])
+
                 return render_template(
                     "main.html",
                     medical_data=existing["medical_data"],
@@ -200,6 +203,9 @@ def index():
             # FORCE ORIGINAL DATA (avoid LLM corruption)
             result["medical_data"] = medical_data
 
+            print(type(result["guidance"]))
+            print(result["guidance"])
+
             # SAVE
             save_report(file_hash, result)
 
@@ -208,7 +214,7 @@ def index():
                 medical_data=result["medical_data"],
                 analysis=result["analysis"],
                 explanation=result["explanation"],
-                guidance=result["guidance"],
+                guidance=parse_guidance(result["guidance"]),
                 validation=validation_result
             )
 

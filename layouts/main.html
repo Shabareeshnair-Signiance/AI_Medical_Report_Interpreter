@@ -466,18 +466,26 @@ function toggleGuidance(index, element) {
 }
 
 function toggleExplanation(index, element) {
+    const allContents = document.querySelectorAll('[id^="explanation-"]');
+
+    // Close ALL first
+    allContents.forEach(content => {
+        content.style.display = "none";
+    });
+
+    const allArrows = document.querySelectorAll('.guidance-header .arrow');
+    allArrows.forEach(arrow => {
+        arrow.style.transform = "rotate(0deg)";
+    });
+
+    // Open ONLY clicked one
     const content = document.getElementById("explanation-" + index);
     const arrow = element.querySelector(".arrow");
 
     if (!content) return;
 
-    if (content.style.display === "none") {
-        content.style.display = "block";
-        arrow.style.transform = "rotate(90deg)";
-    } else {
-        content.style.display = "none";
-        arrow.style.transform = "rotate(0deg)";
-    }
+    content.style.display = "block";
+    arrow.style.transform = "rotate(90deg)";
 }
 
 </script>

@@ -260,7 +260,7 @@
                         {% if explanation is not string %}
                             {% for item in explanation %}
                                 <div class="explanation-card" onclick="toggleExplanation({{ loop.index }}, this)">
-                                    <div class="guidance-header">
+                                    <div class="explanation-content">
                                         <span class="arrow">▶</span> {{ item.test }}
                                     </div>
 

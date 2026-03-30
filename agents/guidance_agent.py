@@ -51,14 +51,11 @@ STRICT RULES:
 
 FOR EACH TEST:
 - Clearly identify the condition (High / Low / Abnormal)
-- Provide:
-  1. Diet → what to eat + what to avoid
-  2. Exercise → suitable physical activity
 
-DIET RULES (STRICT):
-- MUST include both:
-    - Foods to eat
-    - Foods to avoid
+DIET RULES (STRICT)
+- MUST split into:
+    What to Eat
+    What to Avoid
 - Be specific (e.g., vegetables, fruits, grains, avoid sugar, fried food, etc.)
 
 EXERCISE RULES:
@@ -67,13 +64,27 @@ EXERCISE RULES:
 
 OUTPUT FORMAT (STRICT):
 
-Test: <test name>
-- Diet: <What to eat + What to avoid>
-- Exercise: <activity>
+Test: <test name> (<status>)
 
-Test: <next test>
-- Diet: ...
-- Exercise: ...
+Diet:
+What to Eat:
+- <food items>
+
+What to Avoid:
+- <food items>
+
+Exercise:
+- <activity>
+
+Diet:
+✔ What to Eat:
+- ...
+
+❌ What to Avoid:
+- ...
+
+Exercise:
+- ...
 
 FINAL LINE:
 Consult a doctor if needed.

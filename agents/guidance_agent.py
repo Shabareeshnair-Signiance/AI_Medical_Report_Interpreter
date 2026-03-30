@@ -16,45 +16,66 @@ def guidance_agent(state: dict):
 
         llm = get_llm()
 
-        conditions = state.get("conditions", [])
-        conditions_text = ", ".join(conditions) if conditions else "general health"
+        lab_results = state.get("lab_results", [])
 
-        if not conditions:
-            conditions_text = "No specific condition detected, focus on overall health"
+        if not lab_results:
+            state["guidance"] = "No lab results available for guidance."
+            return state
 
         if llm is None:
             logger.error("LLM initialization failed")
             state["guidance"] = "LLM initialization failed"
             return state
+        
+        # converting to string for prompt
+        lab_results_text = str(lab_results)
 
         # UPDATED PROMPT (NO TEST DATA)
         prompt = ChatPromptTemplate.from_template(
             """
 You are a medical wellness assistant.
 
-Provide simple general health guidance.
+Your task is to provide personalized health guidance based on the patient's medical report.
 
-Rules:
-- Give ONLY 2 points
-- Keep it very short and simple
-- Focus only on:
-  1. Healthy diet
-  2. Regular exercise
-- DO NOT mention any medical tests
-- DO NOT mention values
-- DO NOT add extra points
+Patient Test Details:
+{lab_results}
 
-The patient has the following conditions:
-{conditions}
-Tailor the advice based on these conditions if present.
+STRICT RULES:
+- Generate guidance for EACH test separately
+- DO NOT combine multiple tests into one answer
+- DO NOT skip any test
+- DO NOT give generic advice
+- DO NOT mention medical values or numbers
+- DO NOT suggest any medicines or treatments
+- ONLY give lifestyle guidance (diet + exercise)
 
-Also add one final line:
-"Consult a doctor if needed."
+FOR EACH TEST:
+- Clearly identify the condition (High / Low / Abnormal)
+- Provide:
+  1. Diet → what to eat + what to avoid
+  2. Exercise → suitable physical activity
 
-Output Format:
-- <point 1>
-- <point 2>
+DIET RULES (STRICT):
+- MUST include both:
+    - Foods to eat
+    - Foods to avoid
+- Be specific (e.g., vegetables, fruits, grains, avoid sugar, fried food, etc.)
 
+EXERCISE RULES:
+- Suggest safe and relevant activity (walking, yoga, light exercise)
+- Keep it practical
+
+OUTPUT FORMAT (STRICT):
+
+Test: <test name>
+- Diet: <What to eat + What to avoid>
+- Exercise: <activity>
+
+Test: <next test>
+- Diet: ...
+- Exercise: ...
+
+FINAL LINE:
 Consult a doctor if needed.
 """
         )
@@ -62,7 +83,7 @@ Consult a doctor if needed.
         chain = prompt | llm | StrOutputParser()
 
         # NO INPUT NEEDED
-        result = chain.invoke({"conditions": conditions_text})
+        result = chain.invoke({"lab_results": lab_results_text})
 
         logger.info("Health Guidance Agent completed")
 
@@ -85,7 +106,8 @@ if __name__ == "__main__":
 
     print("\n=== Running Full Pipeline Test with PDF ===\n")
 
-    file_path = "sample_data/Glucose_report.pdf"
+    #file_path = "sample_data/Glucose_report.pdf"
+    file_path = "sample_data/Sample Report.pdf"
 
     try:
         # Step 1: Read PDF (digital)
@@ -106,10 +128,18 @@ if __name__ == "__main__":
 
         print("\n=== PARSED DATA ===\n", parsed_data)
 
+        # ADD THIS BLOCK
+        if "tests" not in parsed_data and "lab_results" in parsed_data:
+            parsed_data["tests"] = parsed_data["lab_results"]
+
         # Step 4: Prepare state
-        state = {
+        state: dict = {
             "report_data": parsed_data
         }
+
+        lab_results = parsed_data.get("tests", [])
+        state["lab_results"] = lab_results
+        state["report_data"]["lab_results"] = lab_results
 
         # Step 5: Run Report Agent
         state = report_agent(state)
@@ -117,45 +147,7 @@ if __name__ == "__main__":
         # Step 6: Run Explanation Agent
         state = explanation_agent(state)
 
-        # Step 7: General condition detection (for all tests)
-        conditions = []
-
-        for test in parsed_data.get("tests", []):
-            name = test.get("test", "").lower()
-            status = test.get("status", "").lower()
-
-            if "high" in status or "low" in status:
-
-                if "glucose" in name or "sugar" in name:
-                    conditions.append("Blood Sugar Issue")
-
-                elif "bp" in name or "blood pressure" in name:
-                    conditions.append("Blood Pressure Issue")
-
-                elif "thyroid" in name or "tsh" in name:
-                    conditions.append("Thyroid Imbalance")
-
-                elif "cholesterol" in name:
-                    conditions.append("Cholesterol Issue")
-
-                elif "hemoglobin" in name:
-                    conditions.append("Hemoglobin Issue")
-
-                elif "vitamin" in name:
-                    conditions.append("Vitamin Deficiency")
-
-                elif "calcium" in name:
-                    conditions.append("Calcium Imbalance")
-
-                else:
-                    conditions.append(f"Issue in {test.get('test', 'unknown test')}")
-
-        # Remove duplicates
-        conditions = list(set(conditions))
-
-        state["conditions"] = conditions
-
-        # Step 8: Run Guidance Agent
+        # Step 7: Guidance Agent (now uses lab_results)
         state = guidance_agent(state)
 
         print("\n=== FINAL OUTPUT ===\n")

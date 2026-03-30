@@ -336,21 +336,21 @@
             <!-- CONTENT -->
             <div id="guidance-{{ loop.index }}" class="guidance-content" style="display:none;">
 
-                <p><strong>✔ What to Eat:</strong></p>
+                <p><strong> What to Eat:</strong></p>
                 <ul>
                     {% for item in test.eat %}
                         <li>{{ item }}</li>
                     {% endfor %}
                 </ul>
 
-                <p><strong>❌ What to Avoid:</strong></p>
+                <p><strong> What to Avoid:</strong></p>
                 <ul>
                     {% for item in test.avoid %}
                         <li>{{ item }}</li>
                     {% endfor %}
                 </ul>
 
-                <p><strong>🏃 Exercise:</strong></p>
+                <p><strong> Exercise:</strong></p>
                 <p>{{ test.exercise }}</p>
 
             </div>

@@ -260,24 +260,31 @@
                         {% if explanation is not string %}
                             {% for item in explanation %}
                                 <div class="explanation-card">
-                                    <h3>{{ item.test }}</h3>
+                                    <div class="guidance-header" onclick="toggleExplanation({{ loop.index }}, this)">
+                                        <span class="arrow">▶</span> {{ item.test }}
+                                    </div>
 
-                                    {% set lines = item.content.split('\n') %}
+                                    <div id="explanation-{{ loop.index }}" class="guidance-content" style="display:none;">
 
-                                    {% for line in lines %}
-                                        {% if "What does this test measure?" in line %}
-                                            <p><strong>What does this test measure?</strong></p>
-                                        {% elif "Is this value normal" in line %}
-                                            <p><strong>Status Interpretation</strong></p>
-                                        {% elif "Why is this important" in line %}
-                                            <p><strong>Health Impact</strong></p>
-                                        {% elif line.strip() %}
-                                            <p>{{ line }}</p>
-                                        {% endif %}
-                                    {% endfor %}
+                                        {% set lines = item.content.split('\n') %}
 
-                                </div>
+                                        {% for line in lines %}
+                                            {% if "What does this test measure?" in line %}
+                                                <p><strong>What does this test measure?</strong></p>
+                                            {% elif "Is this value normal" in line %}
+                                                <p><strong>Status Interpretation</strong></p>
+                                            {% elif "Why is this important" in line %}
+                                                <p><strong>Health Impact</strong></p>
+                                            {% elif line.strip() %}
+                                                <p>{{ line }}</p>
+                                            {% endif %}
+                                        {% endfor %}
+                                    
+                                    </div>  <!-- closes explanation-content -->
+
+                                </div>  <!-- closes explanation-card -->
                             {% endfor %}
+                            
                         {% endif %}
 
                         {% for block in blocks %}
@@ -445,6 +452,21 @@ if ('webkitSpeechRecognition' in window && micBtn) {
 
 function toggleGuidance(index, element) {
     const content = document.getElementById("guidance-" + index);
+    const arrow = element.querySelector(".arrow");
+
+    if (!content) return;
+
+    if (content.style.display === "none") {
+        content.style.display = "block";
+        arrow.style.transform = "rotate(90deg)";
+    } else {
+        content.style.display = "none";
+        arrow.style.transform = "rotate(0deg)";
+    }
+}
+
+function toggleExplanation(index, element) {
+    const content = document.getElementById("explanation-" + index);
     const arrow = element.querySelector(".arrow");
 
     if (!content) return;

@@ -572,3 +572,15 @@ button:hover {
 
     box-shadow: 0 8px 20px rgba(0,0,0,0.15);
 }
+
+/* .explanation-content {
+    position: static;
+    top: 50px;
+    left: 0;
+    width: 100%;
+    z-index: 10;
+    background: #f9f9f9;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+} */

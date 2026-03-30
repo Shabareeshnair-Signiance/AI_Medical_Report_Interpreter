@@ -14,6 +14,50 @@ from graph.agent_graph import build_medical_graph
 from storage.database import init_database, save_report, generate_file_hash_from_bytes
 from logger_config import logger
 
+# For Dropdown purpose
+def parse_guidance(text):
+
+    if isinstance(text, list):
+        return text
+    
+    tests = text.split("Test:")
+    structured = []
+
+    for t in tests:
+        if not t.strip():
+            continue
+
+        lines = t.strip().split("\n")
+        title = lines[0]
+
+        eat, avoid, exercise = [], [], ""
+
+        mode = None
+        for line in lines:
+            line = line.strip()
+
+            if "What to Eat" in line:
+                mode = "eat"
+            elif "What to Avoid" in line:
+                mode = "avoid"
+            elif "Exercise" in line:
+                mode = "exercise"
+            elif line.startswith("-"):
+                if mode == "eat":
+                    eat.append(line[1:].strip())
+                elif mode == "avoid":
+                    avoid.append(line[1:].strip())
+                elif mode == "exercise":
+                    exercise += line[1:].strip() + " "
+
+        structured.append({
+            "title": title,
+            "eat": eat,
+            "avoid": avoid,
+            "exercise": exercise.strip()
+        })
+
+    return structured
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
@@ -86,7 +130,7 @@ def index():
                     medical_data=existing["medical_data"],
                     analysis=existing["analysis"],
                     explanation=existing["explanation"],
-                    guidance=existing["guidance"],
+                    guidance=parse_guidance(existing["guidance"]),
                     validation=validation_result
                 )
 
@@ -118,7 +162,7 @@ def index():
                     medical_data=result["medical_data"],
                     analysis=result["analysis"],
                     explanation=result["explanation"],
-                    guidance=result["guidance"],
+                    guidance=parse_guidance(result["guidance"]),
                     validation=validation_result
                 )
 

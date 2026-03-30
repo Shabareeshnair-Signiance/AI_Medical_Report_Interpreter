@@ -59,6 +59,32 @@ def parse_guidance(text):
 
     return structured
 
+def parse_explanation(data):
+
+    # NEW: handle list format (our updated agent)
+    if isinstance(data, list):
+        return data
+
+    # OLD fallback: handle string (for backward compatibility)
+    structured = []
+    parts = data.split("Test Name:")
+
+    for p in parts:
+        if not p.strip():
+            continue
+
+        lines = p.strip().split("\n")
+        title = lines[0].strip()
+
+        content = "\n".join(lines[1:]).strip()
+
+        structured.append({
+            "test": title,
+            "content": content
+        })
+
+    return structured
+
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
@@ -132,7 +158,7 @@ def index():
                     "main.html",
                     medical_data=existing["medical_data"],
                     analysis=existing["analysis"],
-                    explanation=existing["explanation"],
+                    explanation=parse_explanation(existing["explanation"]),
                     guidance=parse_guidance(existing["guidance"]),
                     validation=validation_result
                 )
@@ -164,7 +190,7 @@ def index():
                     "main.html",
                     medical_data=result["medical_data"],
                     analysis=result["analysis"],
-                    explanation=result["explanation"],
+                    explanation=parse_explanation(result["explanation"]),
                     guidance=parse_guidance(result["guidance"]),
                     validation=validation_result
                 )
@@ -213,7 +239,7 @@ def index():
                 "main.html",
                 medical_data=result["medical_data"],
                 analysis=result["analysis"],
-                explanation=result["explanation"],
+                explanation=parse_explanation(result["explanation"]),
                 guidance=parse_guidance(result["guidance"]),
                 validation=validation_result
             )

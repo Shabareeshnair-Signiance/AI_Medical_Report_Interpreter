@@ -289,39 +289,58 @@
             {% endif %}
 
             <!-- Guidance -->
-            {% if guidance %}
-            <div class="card">
-                <h2>Health Guidance</h2>
+{% if guidance %}
+<div class="card">
+    <h2>Health Guidance</h2>
 
-                <div class="guidance-box">
+    <div class="guidance-accordion">
 
-                    {% set lines = guidance.split('\n') %}
+        {% for test in guidance %}
+        <div class="guidance-item">
 
-                    <ul class="guidance-list">
-                        {% for line in lines %}
-                            {% if line.startswith('-') %}
-                                <li>{{ line[1:].strip() }}</li>
-                            {% endif %}
-                        {% endfor %}
-                    </ul>
+            <!-- CLICKABLE HEADER -->
+            <div class="guidance-header" onclick="toggleGuidance({{ loop.index }})">
+                <span style="cursor:pointer;">▶ {{ test.title }}</span>
+            </div>
 
-                    {% for line in lines %}
-                        {% if "Consult a doctor" in line %}
-                            <div class="doctor-note">
-                                ⚠ {{ line }}
-                            </div>
-                        {% endif %}
-            {% endfor %}
+            <!-- CONTENT -->
+            <div id="guidance-{{ loop.index }}" class="guidance-content" style="display:none;">
+
+                <p><strong>✔ What to Eat:</strong></p>
+                <ul>
+                    {% for item in test.eat %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+
+                <p><strong>❌ What to Avoid:</strong></p>
+                <ul>
+                    {% for item in test.avoid %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+
+                <p><strong>🏃 Exercise:</strong></p>
+                <p>{{ test.exercise }}</p>
+
+            </div>
+
+        </div>
+        {% endfor %}
 
     </div>
+
+    <div class="doctor-note">
+        ⚠ Consult a doctor if needed.
+    </div>
+
 </div>
 {% endif %}
 
-        </div>
+</div> <!-- results -->
+{% endif %}
 
-        {% endif %}
-
-    </div>
+</div> <!-- container -->
 <script>
 async function sendMessage() {
     const input = document.getElementById("userInput");
@@ -400,6 +419,13 @@ if ('webkitSpeechRecognition' in window && micBtn) {
         micBtn.style.display = "none"; // hide mic if not supported
     }
 }
+
+function toggleGuidance(index) {
+    const el = document.getElementById("guidance-" + index);
+    if (!el) return;
+    el.style.display = (el.style.display === "none") ? "block" : "none";
+}
+
 </script>
 </body>
 </html>

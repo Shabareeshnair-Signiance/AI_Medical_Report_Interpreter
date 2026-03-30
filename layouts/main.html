@@ -259,8 +259,8 @@
 
                         {% if explanation is not string %}
                             {% for item in explanation %}
-                                <div class="explanation-card">
-                                    <div class="guidance-header" onclick="toggleExplanation({{ loop.index }}, this)">
+                                <div class="explanation-card" onclick="toggleExplanation({{ loop.index }}, this)">
+                                    <div class="guidance-header">
                                         <span class="arrow">▶</span> {{ item.test }}
                                     </div>
 
@@ -466,26 +466,27 @@ function toggleGuidance(index, element) {
 }
 
 function toggleExplanation(index, element) {
+
     const allContents = document.querySelectorAll('[id^="explanation-"]');
+    const allCards = document.querySelectorAll('.explanation-card');
+    const allArrows = document.querySelectorAll('.arrow');
 
-    // Close ALL first
-    allContents.forEach(content => {
-        content.style.display = "none";
-    });
-
-    const allArrows = document.querySelectorAll('.guidance-header .arrow');
-    allArrows.forEach(arrow => {
-        arrow.style.transform = "rotate(0deg)";
-    });
-
-    // Open ONLY clicked one
     const content = document.getElementById("explanation-" + index);
     const arrow = element.querySelector(".arrow");
 
     if (!content) return;
 
-    content.style.display = "block";
-    arrow.style.transform = "rotate(90deg)";
+    const isOpen = content.style.display === "block";
+
+    // Close all
+    allContents.forEach(c => c.style.display = "none");
+    allArrows.forEach(a => a.style.transform = "rotate(0deg)");
+
+    // Toggle only clicked
+    if (!isOpen) {
+        content.style.display = "block";
+        if (arrow) arrow.style.transform = "rotate(90deg)";
+    }
 }
 
 </script>

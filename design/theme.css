@@ -232,8 +232,8 @@ button:hover {
 }
 
 .explanation-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
     gap: 15px;
 }
 
@@ -242,6 +242,20 @@ button:hover {
     padding: 15px;
     border-radius: 10px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+@media (max-width: 768px) {
+    .explanation-card {
+        width: 100%;
+    }
+}
+
+.explanation-card {
+    width: calc(33.33% - 10px);
+}
+
+.explanation-card {
+    height: fit-content;
 }
 
 .exp-title {

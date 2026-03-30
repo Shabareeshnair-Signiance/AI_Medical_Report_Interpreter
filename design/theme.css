@@ -530,3 +530,9 @@ button:hover {
     padding: 8px 14px;
     font-size: 14px;
 }
+
+.arrow {
+    display: inline-block;
+    transition: transform 0.2s ease;
+    margin-right: 6px;
+}

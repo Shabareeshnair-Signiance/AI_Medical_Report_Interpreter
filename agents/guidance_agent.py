@@ -150,8 +150,10 @@ if __name__ == "__main__":
         # Step 7: Guidance Agent (now uses lab_results)
         state = guidance_agent(state)
 
+        print("\nSTATE KEYS:", state.keys())
+
         print("\n=== FINAL OUTPUT ===\n")
-        print("Report Summary:\n", state.get("report", ""))
+        print("Report Summary:\n", state.get("analysis", ""))
         print("\nExplanation:\n", state.get("explanation", ""))
         print("\nGuidance:\n", state.get("guidance", ""))
 

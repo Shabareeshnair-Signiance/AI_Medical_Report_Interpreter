@@ -1,6 +1,7 @@
 import os
 import io
 import sys
+import json
 from flask import Flask, render_template, request
 from flask import jsonify
 
@@ -60,6 +61,15 @@ def parse_guidance(text):
     return structured
 
 def parse_explanation(data):
+
+    # Handles JSON string from DB
+    if isinstance(data, str):
+        try:
+            parsed = json.loads(data)
+            if isinstance(parsed, list):
+                return parsed
+        except:
+            pass
 
     # NEW: handle list format (our updated agent)
     if isinstance(data, list):
@@ -183,8 +193,14 @@ def index():
 
                 result["medical_data"] = medical_data
 
+                db_result = result.copy()
+
+                # Convert explanation list → string for DB
+                if isinstance(db_result.get("explanation"), list):
+                    db_result["explanation"] = json.dumps(db_result["explanation"])
+
                 # SAVE (same DB, no change)
-                save_report(file_hash, result)
+                save_report(file_hash, db_result)
 
                 return render_template(
                     "main.html",
@@ -231,6 +247,12 @@ def index():
 
             print(type(result["guidance"]))
             print(result["guidance"])
+
+            db_result = result.copy()
+
+            # Convert explanation list → string for DB
+            if isinstance(db_result.get("explanation"), list):
+                db_result["explanation"] = json.dumps(db_result["explanation"])
 
             # SAVE
             save_report(file_hash, result)

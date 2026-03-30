@@ -108,65 +108,65 @@ Consult a doctor if needed.
     
 
 # testing the guidance agent
-if __name__ == "__main__":
-    from processing.pdf_reader import read_pdf
-    from processing.report_parser import parse_medical_report
-    from processing.llm_extractor import llm_extract_medical_data
-    from agents.report_agent import report_agent
-    from agents.explanation_agent import explanation_agent
+# if __name__ == "__main__":
+#     from processing.pdf_reader import read_pdf
+#     from processing.report_parser import parse_medical_report
+#     from processing.llm_extractor import llm_extract_medical_data
+#     from agents.report_agent import report_agent
+#     from agents.explanation_agent import explanation_agent
 
-    print("\n=== Running Full Pipeline Test with PDF ===\n")
+#     print("\n=== Running Full Pipeline Test with PDF ===\n")
 
-    #file_path = "sample_data/Glucose_report.pdf"
-    file_path = "sample_data/Sample Report.pdf"
+#     #file_path = "sample_data/Glucose_report.pdf"
+#     file_path = "sample_data/Sample Report.pdf"
 
-    try:
-        # Step 1: Read PDF (digital)
-        text = read_pdf(file_path)
+#     try:
+#         # Step 1: Read PDF (digital)
+#         text = read_pdf(file_path)
 
-        # Step 2: Parse report (rule-based)
-        parsed_data = parse_medical_report(text)
+#         # Step 2: Parse report (rule-based)
+#         parsed_data = parse_medical_report(text)
 
-        # Step 3: Fallback to LLM extractor if parser fails
-        if (
-            not parsed_data
-            or not isinstance(parsed_data, dict)
-            or "tests" not in parsed_data
-            or len(parsed_data.get("tests", [])) == 0
-        ):
-            print("⚠️ Parser failed, switching to LLM extractor...")
-            parsed_data = llm_extract_medical_data(text)
+#         # Step 3: Fallback to LLM extractor if parser fails
+#         if (
+#             not parsed_data
+#             or not isinstance(parsed_data, dict)
+#             or "tests" not in parsed_data
+#             or len(parsed_data.get("tests", [])) == 0
+#         ):
+#             print("⚠️ Parser failed, switching to LLM extractor...")
+#             parsed_data = llm_extract_medical_data(text)
 
-        print("\n=== PARSED DATA ===\n", parsed_data)
+#         print("\n=== PARSED DATA ===\n", parsed_data)
 
-        # ADD THIS BLOCK
-        if "tests" not in parsed_data and "lab_results" in parsed_data:
-            parsed_data["tests"] = parsed_data["lab_results"]
+#         # ADD THIS BLOCK
+#         if "tests" not in parsed_data and "lab_results" in parsed_data:
+#             parsed_data["tests"] = parsed_data["lab_results"]
 
-        # Step 4: Prepare state
-        state: dict = {
-            "report_data": parsed_data
-        }
+#         # Step 4: Prepare state
+#         state: dict = {
+#             "report_data": parsed_data
+#         }
 
-        lab_results = parsed_data.get("tests", [])
-        state["lab_results"] = lab_results
-        state["report_data"]["lab_results"] = lab_results
+#         lab_results = parsed_data.get("tests", [])
+#         state["lab_results"] = lab_results
+#         state["report_data"]["lab_results"] = lab_results
 
-        # Step 5: Run Report Agent
-        state = report_agent(state)
+#         # Step 5: Run Report Agent
+#         state = report_agent(state)
 
-        # Step 6: Run Explanation Agent
-        state = explanation_agent(state)
+#         # Step 6: Run Explanation Agent
+#         state = explanation_agent(state)
 
-        # Step 7: Guidance Agent (now uses lab_results)
-        state = guidance_agent(state)
+#         # Step 7: Guidance Agent (now uses lab_results)
+#         state = guidance_agent(state)
 
-        print("\nSTATE KEYS:", state.keys())
+#         print("\nSTATE KEYS:", state.keys())
 
-        print("\n=== FINAL OUTPUT ===\n")
-        print("Report Summary:\n", state.get("analysis", ""))
-        print("\nExplanation:\n", state.get("explanation", ""))
-        print("\nGuidance:\n", state.get("guidance", ""))
+#         print("\n=== FINAL OUTPUT ===\n")
+#         print("Report Summary:\n", state.get("analysis", ""))
+#         print("\nExplanation:\n", state.get("explanation", ""))
+#         print("\nGuidance:\n", state.get("guidance", ""))
 
-    except Exception as e:
-        print(f"Test failed: {str(e)}")
+#     except Exception as e:
+#         print(f"Test failed: {str(e)}")

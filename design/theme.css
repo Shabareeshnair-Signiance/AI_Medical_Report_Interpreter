@@ -242,6 +242,8 @@ button:hover {
     padding: 15px;
     border-radius: 10px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    width: calc(33.33% - 10px);
+    align-self: flex-start;
 }
 
 @media (max-width: 768px) {
@@ -549,4 +551,24 @@ button:hover {
     display: inline-block;
     transition: transform 0.2s ease;
     margin-right: 6px;
+}
+
+/* Make card positionable */
+.explanation-card {
+    position: relative;
+}
+
+/* Expanded content floats over layout */
+.guidance-content {
+    position: static;
+    top: 50px;
+    left: 0;
+    width: 100%;
+    z-index: 10;
+
+    background: #f9f9f9;
+    padding: 15px;
+    border-radius: 10px;
+
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
 }

@@ -77,10 +77,10 @@ Exercise:
 - <activity>
 
 Diet:
-✔ What to Eat:
+What to Eat:
 - ...
 
-❌ What to Avoid:
+What to Avoid:
 - ...
 
 Exercise:

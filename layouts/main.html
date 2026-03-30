@@ -299,8 +299,8 @@
         <div class="guidance-item">
 
             <!-- CLICKABLE HEADER -->
-            <div class="guidance-header" onclick="toggleGuidance({{ loop.index }})">
-                <span style="cursor:pointer;">▶ {{ test.title }}</span>
+            <div class="guidance-header" onclick="toggleGuidance({{ loop.index }}, this)">
+                <span class="arrow">▶</span> {{ test.title }}
             </div>
 
             <!-- CONTENT -->
@@ -420,10 +420,19 @@ if ('webkitSpeechRecognition' in window && micBtn) {
     }
 }
 
-function toggleGuidance(index) {
-    const el = document.getElementById("guidance-" + index);
-    if (!el) return;
-    el.style.display = (el.style.display === "none") ? "block" : "none";
+function toggleGuidance(index, element) {
+    const content = document.getElementById("guidance-" + index);
+    const arrow = element.querySelector(".arrow");
+
+    if (!content) return;
+
+    if (content.style.display === "none") {
+        content.style.display = "block";
+        arrow.style.transform = "rotate(90deg)";
+    } else {
+        content.style.display = "none";
+        arrow.style.transform = "rotate(0deg)";
+    }
 }
 
 </script>

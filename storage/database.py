@@ -79,16 +79,33 @@ def save_report(file_hash, state):
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
 
+        # SAFE CONVERSION (ADD THIS LOGIC)
+        explanation = state.get("explanation")
+        if isinstance(explanation, (list, dict)):
+            explanation = json.dumps(explanation)
+
+        guidance = state.get("guidance")
+        if isinstance(guidance, (list, dict)):
+            guidance = json.dumps(guidance)
+
+        medical_data = state.get("medical_data")
+        if isinstance(medical_data, (list, dict)):
+            medical_data = json.dumps(medical_data)
+
         cursor.execute("""
         INSERT OR REPLACE INTO reports
         (file_hash, medical_data, analysis, explanation, guidance)
         VALUES (?, ?, ?, ?, ?)
         """, (
             file_hash,
-            json.dumps(state.get("medical_data")),
+            # json.dumps(state.get("medical_data")),
+            # state.get("analysis"),
+            # state.get("explanation"),
+            # state.get("guidance")
+            medical_data,
             state.get("analysis"),
-            state.get("explanation"),
-            state.get("guidance")
+            explanation,
+            guidance
         ))
 
         conn.commit()

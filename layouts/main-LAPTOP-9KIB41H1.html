@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Medical Report Interpreter</title>
+
+    <link rel="stylesheet" href="/design/theme.css">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h1>AI Medical Report Interpreter</h1>
+
+        <!-- Upload Form -->
+        <form id="uploadForm" method="POST" enctype="multipart/form-data" class="upload-form">
+            <input type="file" name="file" accept=".pdf" required>
+            <button type="submit">Upload Report</button>
+        </form>
+
+        {% if medical_data or validation %}
+
+        <div class="results">
+
+            <!-- LAB RESULTS -->
+            {% if medical_data %}
+            <div class="card">
+                <h2>Extracted Medical Data</h2>
+
+                {% if medical_data.lab_results %}
+                    <div class="lab-grid">
+                        {% for item in medical_data.lab_results %}
+
+                            {% set status = item.status | lower %}
+                            {% set status_class = "normal" %}
+
+                            {% if "low" in status %}
+                                {% set status_class = "low" %}
+                            {% elif "high" in status %}
+                                {% set status_class = "high" %}
+                            {% endif %}
+
+                            <div class="lab-card {{ status_class }}">
+                                <h3>{{ item.test }}</h3>
+
+                                <p><strong>Value:</strong> {{ item.value }}</p>
+                                <p><strong>Range:</strong> {{ item.reference_range }}</p>
+
+                                <span class="status-badge {{ status_class }}">
+                                    {{ item.status }}
+                                </span>
+                            </div>
+
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p>No lab results found</p>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- VALIDATION -->
+            {% if validation %}
+            <div class="card">
+                <h2>Validation Details</h2>
+
+                {% if not validation.is_valid %}
+                    <div class="error-box">
+                        <h3>❌ Invalid Report</h3>
+                        <p>{{ error_message }}</p>
+
+                        {% if validation.errors %}
+                            <ul>
+                                {% for err in validation.errors %}
+                                    <li>{{ err }}</li>
+                                {% endfor %}
+                            </ul>
+                        {% endif %}
+                    </div>
+
+                {% else %}
+                    <div class="validation-section">
+                        <p><strong>Status:</strong> <span class="badge success">✔ Valid</span></p>
+                        <p class="sub-text">Report format verified successfully</p>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <div class="validation-section">
+                        <p><strong>Report Type:</strong>
+                            <span class="badge info">
+                                {% if validation.is_duplicate %} ♻ Existing {% else %} 📄 New {% endif %}
+                            </span>
+                        </p>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <div class="validation-section">
+                        <h3>Patient Details</h3>
+
+                        {% if validation.extracted_data.user_name %}
+                            <p><strong>Name:</strong> {{ validation.extracted_data.user_name }}</p>
+                        {% endif %}
+
+                        {% if validation.extracted_data.pid %}
+                            <p><strong>PID:</strong> <span class="id-tag">{{ validation.extracted_data.pid }}</span></p>
+                        {% endif %}
+
+                        {% if validation.extracted_data.reg_no %}
+                            <p><strong>Reg No:</strong> <span class="id-tag">{{ validation.extracted_data.reg_no }}</span></p>
+                        {% endif %}
+
+                        {% if validation.extracted_data.lab_no %}
+                            <p><strong>Lab No:</strong> <span class="id-tag">{{ validation.extracted_data.lab_no }}</span></p>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Analysis -->
+            {% if analysis %}
+            <div class="card">
+                <h2>Report Analysis</h2>
+
+                <!-- Clinical Summary -->
+                <div class="summary-box">
+                    <strong>Clinical Summary:</strong> Overview of report findings
+                </div>
+
+                <div class="analysis-layout">
+
+                    {% set lines = analysis.split('\n') %}
+
+                    {% for line in lines %}
+
+                        {% if "Critical Findings" in line %}
+                            <div class="analysis-card critical large">
+                                <h3>Critical Findings</h3>
+
+                        {% elif "Abnormal Findings" in line %}
+                            </div>
+                            <div class="analysis-card abnormal large">
+                                <h3>Abnormal Findings</h3>
+
+                        {% elif "Normal Findings" in line %}
+                            </div>
+                            <div class="analysis-card normal">
+                                <h3>Normal Findings</h3>
+
+                        {% elif "Patterns Detected" in line %}
+                            </div>
+                            <div class="analysis-card info">
+                                <h3>Patterns Detected</h3>
+
+                        {% elif "Systems Involved" in line %}
+                            </div>
+                            <div class="analysis-card info">
+                                <h3>Systems Involved</h3>
+
+                        {% elif "Overall Impression" in line %}
+                            </div>
+                            <div class="analysis-card highlight full">
+                                <h3>Overall Impression</h3>
+
+                        {% elif "Recommended Focus" in line %}
+                            </div>
+                            <div class="analysis-card highlight full">
+                                <h3>Recommended Focus</h3>
+
+                        {% elif line.strip() %}
+                            <p class="analysis-line">{{ line }}</p>
+                        {% endif %}
+
+                    {% endfor %}
+                    </div>
+
+                    <!-- CHATBOX SECTION -->
+                    <div class="chatbox-section">
+
+                        <h3>Ask About This Report</h3>
+
+                        <div id="chatbox" style="max-height:250px; overflow-y:auto; margin-bottom:10px;"></div>
+
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <input type="text" id="userInput" placeholder="Ask a question..." style="flex:1; padding:8px;">
+
+                            <!-- 🎤 Mic Button (NEW) -->
+                            <button id="micBtn" style="padding:8px;">🎤</button>
+
+                            <button onclick="sendMessage()">Send</button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+
+            <!-- UPDATED EXPLANATION -->
+            {% if explanation %}
+            <div class="card">
+                <h2>Explanation</h2>
+
+                {% if explanation is string and "SUMMARY OF RESULTS" in explanation %}
+
+                    <!-- MULTI TEST MODE -->
+                    <div class="summary-grid">
+
+                        {% set lines = explanation.split('\n') if explanation is string else [] %}
+                        {% set current_section = "" %}
+
+                        {% for line in lines %}
+
+                            {% if "Low Values" in line %}
+                                {% set current_section = "low" %}
+                                <div class="summary-card low">
+                                    <h3>🔴 Low Values</h3>
+
+                            {% elif "High Values" in line %}
+                                </div>
+                                {% set current_section = "high" %}
+                                <div class="summary-card high">
+                                    <h3>🟠 High Values</h3>
+
+                            {% elif "Normal Values" in line %}
+                                </div>
+                                {% set current_section = "normal" %}
+                                <div class="summary-card normal">
+                                    <h3>🟢 Normal Values</h3>
+
+                            {% elif "Overall" in line %}
+                                </div>
+                                {% set current_section = "overall" %}
+                                <div class="summary-card overall full">
+                                    <h3>Overall</h3>
+
+                            {% elif line.strip().startswith("-") %}
+                                <p class="summary-line">{{ line }}</p>
+
+                            {% elif line.strip() and "SUMMARY OF RESULTS" not in line %}
+                                <p class="summary-text">{{ line }}</p>
+
+                            {% endif %}
+
+                        {% endfor %}
+
+                        </div> <!-- CLOSE LAST CARD -->
+                    </div> <!-- summary-grid -->
+
+                {% else %}
+
+                    <!-- SINGLE / DOUBLE TEST MODE -->
+                    {% set blocks = explanation.split("Test Name:") if explanation is string else [] %}
+
+                    <div class="explanation-grid">
+
+                        {% if explanation is not string %}
+                            {% for item in explanation %}
+                                <div class="explanation-card" onclick="toggleExplanation({{ loop.index }}, this)">
+                                    <div class="explanation-content">
+                                        <span class="arrow">▶</span> {{ item.test }}
+                                    </div>
+
+                                    <div id="explanation-{{ loop.index }}" class="guidance-content" style="display:none;">
+
+                                        {% set lines = item.content.split('\n') %}
+
+                                        {% for line in lines %}
+                                            {% if "What does this test measure?" in line %}
+                                                <p><strong>What does this test measure?</strong></p>
+                                            {% elif "Is this value normal" in line %}
+                                                <p><strong>Status Interpretation</strong></p>
+                                            {% elif "Why is this important" in line %}
+                                                <p><strong>Health Impact</strong></p>
+                                            {% elif line.strip() %}
+                                                <p>{{ line }}</p>
+                                            {% endif %}
+                                        {% endfor %}
+                                    
+                                    </div>  <!-- closes explanation-content -->
+
+                                </div>  <!-- closes explanation-card -->
+                            {% endfor %}
+                            
+                        {% endif %}
+
+                        {% for block in blocks %}
+                            {% if block.strip() %}
+                                <div class="explanation-card">
+
+                                    {% set lines = block.strip().split('\n') %}
+
+                                    {% for line in lines %}
+                                        {% if "Test Name:" in line %}
+                                            <h3>{{ line }}</h3>
+                                        {% elif "What does this test measure?" in line %}
+                                            <p><strong>What does this test measure?</strong></p>
+                                        {% elif "Is this value normal" in line %}
+                                            <p><strong>Status Interpretation</strong></p>
+                                        {% elif "Why is this important" in line %}
+                                            <p><strong>Health Impact</strong></p>
+                                        {% elif line.strip() %}
+                                            <p>{{ line }}</p>
+                                        {% endif %}
+                                    {% endfor %}
+
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+
+                    </div>
+
+                {% endif %}
+
+            </div>
+            {% endif %}
+
+            <!-- Guidance -->
+{% if guidance %}
+<div class="card">
+    <h2>Health Guidance</h2>
+
+    <div class="guidance-accordion">
+
+        {% for test in guidance %}
+        <div class="guidance-item">
+
+            <!-- CLICKABLE HEADER -->
+            <div class="guidance-header" onclick="toggleGuidance({{ loop.index }}, this)">
+                <span class="arrow">▶</span> {{ test.title }}
+            </div>
+
+            <!-- CONTENT -->
+            <div id="guidance-{{ loop.index }}" class="guidance-content" style="display:none;">
+
+                <p><strong> What to Eat:</strong></p>
+                <ul>
+                    {% for item in test.eat %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+
+                <p><strong> What to Avoid:</strong></p>
+                <ul>
+                    {% for item in test.avoid %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+
+                <p><strong> Exercise:</strong></p>
+                <p>{{ test.exercise }}</p>
+
+            </div>
+
+        </div>
+        {% endfor %}
+
+    </div>
+
+    <div class="doctor-note">
+        ⚠ Consult a doctor if needed.
+    </div>
+
+</div>
+{% endif %}
+
+</div> <!-- results -->
+{% endif %}
+
+</div> <!-- container -->
+
+<script>
+    const ANALYSIS_DATA = `{{ analysis }}`;
+</script>
+
+<script src="/logic/script.js" defer></script>
+
+</body>
+</html>

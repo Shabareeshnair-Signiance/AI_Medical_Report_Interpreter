@@ -9,8 +9,7 @@ from logger_config import logger
 def explanation_agent(state: dict):
     """
     LangGraph node for generating explanation.
-    - <= 2 tests → detailed explanation
-    - > 2 tests → compressed summary
+    Now supports ANY number of tests with per-test explanation.
     """
 
     try:
@@ -22,53 +21,55 @@ def explanation_agent(state: dict):
             logger.error("No lab results for explanation")
             state["explanation"] = ""
             return state
+        
+        logger.info("Using per-test explanation mode")
 
-        num_tests = len(lab_results)
+        # num_tests = len(lab_results)
 
-        # MULTIPLE TESTS (COMPRESSED)
-        if num_tests > 2:
-            logger.info("Using compressed explanation mode")
+        # # MULTIPLE TESTS (COMPRESSED)
+        # if num_tests > 2:
+        #     logger.info("Using compressed explanation mode")
 
-            low = []
-            high = []
-            normal = []
+        #     low = []
+        #     high = []
+        #     normal = []
 
-            for item in lab_results:
-                test = item.get("test")
-                value = item.get("value")
-                status = item.get("status", "").lower()
+        #     for item in lab_results:
+        #         test = item.get("test")
+        #         value = item.get("value")
+        #         status = item.get("status", "").lower()
 
-                if not test or not value:
-                    continue
+        #         if not test or not value:
+        #             continue
 
-                entry = f"{test}: {value}"
+        #         entry = f"{test}: {value}"
 
-                if "low" in status:
-                    low.append(entry)
-                elif "high" in status:
-                    high.append(entry)
-                else:
-                    normal.append(entry)
+        #         if "low" in status:
+        #             low.append(entry)
+        #         elif "high" in status:
+        #             high.append(entry)
+        #         else:
+        #             normal.append(entry)
 
-            explanation = "SUMMARY OF RESULTS:\n\n"
+        #     explanation = "SUMMARY OF RESULTS:\n\n"
 
-            if low:
-                explanation += "Low Values:\n- " + "\n- ".join(low) + "\n\n"
+        #     if low:
+        #         explanation += "Low Values:\n- " + "\n- ".join(low) + "\n\n"
 
-            if high:
-                explanation += "High Values:\n- " + "\n- ".join(high) + "\n\n"
+        #     if high:
+        #         explanation += "High Values:\n- " + "\n- ".join(high) + "\n\n"
 
-            if normal:
-                explanation += "Normal Values:\n- " + "\n- ".join(normal) + "\n\n"
+        #     if normal:
+        #         explanation += "Normal Values:\n- " + "\n- ".join(normal) + "\n\n"
 
-            explanation += "Overall:\n"
-            explanation += "Multiple test results observed. Some values are outside normal range. Clinical correlation is recommended."
+        #     explanation += "Overall:\n"
+        #     explanation += "Multiple test results observed. Some values are outside normal range. Clinical correlation is recommended."
 
-            state["explanation"] = explanation
-            return state
+        #     state["explanation"] = explanation
+        #     return state
 
         # FEW TESTS (DETAILED)
-        logger.info("Using detailed explanation mode")
+        #logger.info("Using detailed explanation mode")
 
         llm = get_llm()
 
@@ -113,6 +114,11 @@ Is this value normal, high, or low?
 
 Why is this important for health?
 <short explanation>
+
+IMPORTANT:
+- Use clear section titles
+- Keep spacing between sections
+- Do not tepeat test name multiple times
 """
         )
 
@@ -140,11 +146,17 @@ Why is this important for health?
                 "knowledge": knowledge_text
             })
 
-            explanations.append(result)
+            explanations.append({
+                "test": test,
+                "content": result.strip()
+            })
 
         logger.info("Explanation Agent completed")
 
-        state["explanation"] = "\n\n".join(explanations)
+        # state["explanation"] = "\n\n".join(explanations)
+        # return state
+
+        state["explanation"] = explanations
         return state
 
     except Exception as e:

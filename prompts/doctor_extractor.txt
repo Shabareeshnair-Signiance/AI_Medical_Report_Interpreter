@@ -1,18 +1,18 @@
 Extract structured medical information from the report.
 
 Return ONLY valid JSON in this format:
-{
+{{
   "patient_name": "",
   "report_date": "",
   "lab_results": [
-    {
+    {{
       "test": "",
       "value": "",
       "reference_range": "",
       "status": "Low/Normal/High"
-    }
+    }}
   ]
-}
+}}
 
 Rules:
 - Identify correct patient name (ignore headers, footers, lab names)

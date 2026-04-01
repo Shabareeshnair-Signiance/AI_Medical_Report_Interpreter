@@ -1,72 +1,83 @@
 import os
 import json
-# Importing from your specified paths
+import hashlib
 from processing.llm_doctor_extractor import llm_doctor_extractor 
 from doctors.trend_agent import TrendAgent
 from processing.pdf_reader import read_pdf
+# Import your new database functions
+from storage.medical_history_db import init_history_database, get_history_for_patient, save_patient_trend_data
 
-def test_real_files_pipeline():
+def generate_file_hash(file_path):
+    """Generates a unique hash for the file to prevent re-processing the same PDF."""
+    sha256 = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        while chunk := f.read(8192):
+            sha256.update(chunk)
+    return sha256.hexdigest()
+
+def test_database_pipeline():
+    # Initialize the Doctor's History Database
+    init_history_database()
     agent = TrendAgent()
     
-    print("🚀 Starting Real PDF Pipeline Test...\n")
+    print("🚀 Starting Database & Trend Pipeline Test...\n")
 
-    # 1. PROCESS THE PREVIOUS REPORT (History)
-    # Using the file you mentioned: CBC Mutiple Test.pdf
-    #path_old = "sample_data/CBC Mutiple Test.pdf"
+    # --- STEP 1: PROCESS HISTORY FILE ---
     path_old = "sample_data/Glucose_report.pdf"
-    print(f"--- Processing History: {os.path.basename(path_old)} ---")
-    
     if not os.path.exists(path_old):
         print(f"❌ Error: File {path_old} not found.")
         return
 
+    print(f"📦 Step 1: Extracting and Saving History ({os.path.basename(path_old)})...")
     text_old = read_pdf(path_old)
-    # Pass path to allow the date fallback logic in your extractor to work
-    history_report = llm_doctor_extractor(text_old, file_path=path_old) 
+    history_data = llm_doctor_extractor(text_old, file_path=path_old)
+    hash_old = generate_file_hash(path_old)
     
-    # Wrap in a list because TrendAgent expects a history list
-    history_list = [history_report] 
+    # Save this first file so it exists in our "History"
+    save_patient_trend_data(hash_old, history_data, {"llm_insight": "Initial report."})
 
-    # 2. PROCESS THE CURRENT REPORT
-    # Using the file you mentioned: sample_blood_report.pdf
+    # --- STEP 2: PROCESS CURRENT FILE ---
     path_new = "sample_data/generated_medical_report.pdf"
-    print(f"\n--- Processing Current: {os.path.basename(path_new)} ---")
-    
     if not os.path.exists(path_new):
         print(f"❌ Error: File {path_new} not found.")
         return
 
+    print(f"📄 Step 2: Extracting Current Report ({os.path.basename(path_new)})...")
     text_new = read_pdf(path_new)
     current_report = llm_doctor_extractor(text_new, file_path=path_new)
+    hash_new = generate_file_hash(path_new)
 
-    # 3. RUN TREND ANALYSIS
-    print("\n--- Running Trend Analysis ---")
-    # This now performs the Unbreakable Identity check (PID/LabNo/Name+DOB)
+    # --- STEP 3: DATABASE LOOKUP ---
+    # Instead of a manual list, we fetch from the DB using our 'Unbreakable' IDs
+    pid = current_report.get("pid") or current_report.get("lab_no")
+    name = current_report.get("patient_name")
+    
+    print(f"🔍 Step 3: Searching Database for history (ID: {pid}, Name: {name})...")
+    history_list = get_history_for_patient(pid=pid, name=name)
+    print(f"✅ Found {len(history_list)} previous reports in database.")
+
+    # --- STEP 4: RUN TREND ANALYSIS ---
+    print("\n📈 Step 4: Running Trend Analysis...")
     result = agent.analyze(current_report, history_list)
 
-    # 4. DISPLAY RESULTS
+    # --- STEP 5: SAVE & DISPLAY ---
     if result["status"] == "success":
+        # Save the result so the NEXT time you run it, this is also in the history
+        save_patient_trend_data(hash_new, current_report, result)
+        
         print(f"✅ Patient: {result['patient_name']}")
-        print(f"📊 Found {len(result['trends'])} matching tests between reports.\n")
+        print(f"📊 Trends Found: {len(result['trends'])}\n")
         
         for trend in result["trends"]:
-            print(f"Test: {trend['test']}")
-            print(f"  Old Value: {trend['previous']}")
-            print(f"  New Value: {trend['current']}")
-            # Note: We show the raw percentage; the LLM explains if it's good/bad
-            print(f"  Change: {trend['change_pct']}%")
-            print("-" * 30)
+            print(f"Test: {trend['test']} | {trend['previous']} -> {trend['current']} ({trend['change_pct']}%)")
         
         print("\n" + "="*50)
-        print("💡 CLINICAL INSIGHT (AI ANALYSIS):")
+        print("💡 CLINICAL INSIGHT STORED IN DATABASE:")
         print("="*50)
-        print(result.get("llm_insight", "No insight generated."))
+        print(result.get("llm_insight"))
         print("="*50 + "\n")
-
     else:
-        print(f"⚠️ Analysis Stopped")
-        print(f"Status: {result['status']}")
-        print(f"Message: {result['message']}")
+        print(f"⚠️ Analysis Stopped: {result['status']} - {result['message']}")
 
 if __name__ == "__main__":
-    test_real_files_pipeline()
+    test_database_pipeline()

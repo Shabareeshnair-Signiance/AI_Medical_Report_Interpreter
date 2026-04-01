@@ -35,6 +35,19 @@ def init_history_database():
     except Exception as e:
         logger.error(f"History Database initialization failed: {str(e)}")
 
+def check_file_exists(file_hash):
+    """Checks if this exact file has already been processed using its hash."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT file_hash FROM patient_reports WHERE file_hash = ?", (file_hash,))
+        result = cursor.fetchone()
+        conn.close()
+        return result is not None
+    except Exception as e:
+        logger.error(f"Hash check failed: {str(e)}")
+        return False
+
 def get_history_for_patient(pid=None, name=None):
     """Retrieves all previous reports for the Trend Agent to compare against."""
     try:
@@ -52,8 +65,13 @@ def get_history_for_patient(pid=None, name=None):
 
         history = []
         for row in rows:
-            data = json.loads(row[0])
-            data['report_date'] = row[1]
+            # We reconstruct the report structure expected by the Trend Agent
+            data = {
+                "lab_results": json.loads(row[0]),
+                "report_date": row[1],
+                "patient_id": pid,
+                "patient_name": name
+            }
             history.append(data)
         
         return history
@@ -61,20 +79,46 @@ def get_history_for_patient(pid=None, name=None):
         logger.error(f"Failed to fetch history: {str(e)}")
         return []
 
+def get_report_scenario(file_hash, extracted_data):
+    """
+    PRODUCTION LOGIC: Determines which scenario the current report falls into.
+    Returns: (scenario_name, history_list)
+    """
+    pid = extracted_data.get("pid") or extracted_data.get("lab_no")
+    name = extracted_data.get("patient_name", "").lower().strip()
+    report_date = extracted_data.get("report_date")
+
+    # 1. Check for Duplicate File (Scenario 4 Part A)
+    if check_file_exists(file_hash):
+        return "EXISTS_IN_DB", []
+
+    # 2. Get history to check for other scenarios
+    history = get_history_for_patient(pid=pid, name=name)
+
+    if not history:
+        # Scenario 1 & 2: New User or No history
+        return "NEW_PATIENT", []
+
+    # 3. Check for Duplicate Date (Scenario 4 Part B: Same report but different file)
+    existing_dates = [h.get('report_date') for h in history]
+    if report_date in existing_dates:
+        return "SAME_DATE_REPORT", history
+
+    # 4. Scenario 3: Success, history exists for comparison
+    return "HISTORY_AVAILABLE", history
+
 def save_patient_trend_data(file_hash, extracted_data, trend_result):
-    """Saves the new extraction and the trend analysis into the history store."""
+    """Saves the extraction and trend insights into history."""
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
 
-        # Prepare values for the Unbreakable identity match
         pid = extracted_data.get("pid") or extracted_data.get("lab_no")
         name = extracted_data.get("patient_name", "").lower().strip()
         report_date = extracted_data.get("report_date")
         
-        # Serialize the medical data JSON
+        # We store just the results list to keep the DB light
         medical_json = json.dumps(extracted_data.get("lab_results", []))
-        # Store the LLM clinical insight from the Trend Agent
         insight = trend_result.get("llm_insight", "")
 
         cursor.execute("""
@@ -85,6 +129,6 @@ def save_patient_trend_data(file_hash, extracted_data, trend_result):
 
         conn.commit()
         conn.close()
-        logger.info(f"Trend data for {name} saved successfully")
+        logger.info(f"Report for {name} ({report_date}) committed to history.")
     except Exception as e:
         logger.error(f"Failed to save trend data: {str(e)}")

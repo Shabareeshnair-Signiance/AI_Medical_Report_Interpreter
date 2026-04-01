@@ -1,83 +1,71 @@
 import os
-import json
 import hashlib
 from processing.llm_doctor_extractor import llm_doctor_extractor 
 from doctors.trend_agent import TrendAgent
 from processing.pdf_reader import read_pdf
-# Import your new database functions
-from storage.medical_history_db import init_history_database, get_history_for_patient, save_patient_trend_data
+# Import our production-level functions
+from storage.medical_history_db import (
+    init_history_database, 
+    get_report_scenario, 
+    save_patient_trend_data
+)
 
 def generate_file_hash(file_path):
-    """Generates a unique hash for the file to prevent re-processing the same PDF."""
     sha256 = hashlib.sha256()
     with open(file_path, "rb") as f:
         while chunk := f.read(8192):
             sha256.update(chunk)
     return sha256.hexdigest()
 
-def test_database_pipeline():
-    # Initialize the Doctor's History Database
+def process_single_upload(file_path):
+    """
+    Simulates a REAL WORLD single-file upload process.
+    """
     init_history_database()
     agent = TrendAgent()
     
-    print("🚀 Starting Database & Trend Pipeline Test...\n")
+    # 1. Physical Extraction
+    file_hash = generate_file_hash(file_path)
+    text = read_pdf(file_path)
+    current_report = llm_doctor_extractor(text, file_path=file_path)
 
-    # --- STEP 1: PROCESS HISTORY FILE ---
-    path_old = "sample_data/Glucose_report.pdf"
-    if not os.path.exists(path_old):
-        print(f"❌ Error: File {path_old} not found.")
-        return
+    # 2. Database Intelligence: Determine the Scenario
+    scenario, history_list = get_report_scenario(file_hash, current_report)
 
-    print(f"📦 Step 1: Extracting and Saving History ({os.path.basename(path_old)})...")
-    text_old = read_pdf(path_old)
-    history_data = llm_doctor_extractor(text_old, file_path=path_old)
-    hash_old = generate_file_hash(path_old)
-    
-    # Save this first file so it exists in our "History"
-    save_patient_trend_data(hash_old, history_data, {"llm_insight": "Initial report."})
+    print(f"\n" + "="*60)
+    print(f"📄 FILE: {os.path.basename(file_path)}")
+    print(f"🔍 SCENARIO DETECTED: {scenario}")
+    print("="*60)
 
-    # --- STEP 2: PROCESS CURRENT FILE ---
-    path_new = "sample_data/generated_medical_report.pdf"
-    if not os.path.exists(path_new):
-        print(f"❌ Error: File {path_new} not found.")
-        return
+    # SCENARIO 1: New Patient (Saves report and stops)
+    if scenario == "NEW_PATIENT":
+        print("🆕 Message: No history found. This is a new patient.")
+        save_patient_trend_data(file_hash, current_report, {"llm_insight": "Baseline established."})
+        print(f"✅ Action: {current_report.get('patient_name')} has been registered in the history database.")
 
-    print(f"📄 Step 2: Extracting Current Report ({os.path.basename(path_new)})...")
-    text_new = read_pdf(path_new)
-    current_report = llm_doctor_extractor(text_new, file_path=path_new)
-    hash_new = generate_file_hash(path_new)
-
-    # --- STEP 3: DATABASE LOOKUP ---
-    # Instead of a manual list, we fetch from the DB using our 'Unbreakable' IDs
-    pid = current_report.get("pid") or current_report.get("lab_no")
-    name = current_report.get("patient_name")
-    
-    print(f"🔍 Step 3: Searching Database for history (ID: {pid}, Name: {name})...")
-    history_list = get_history_for_patient(pid=pid, name=name)
-    print(f"✅ Found {len(history_list)} previous reports in database.")
-
-    # --- STEP 4: RUN TREND ANALYSIS ---
-    print("\n📈 Step 4: Running Trend Analysis...")
-    result = agent.analyze(current_report, history_list)
-
-    # --- STEP 5: SAVE & DISPLAY ---
-    if result["status"] == "success":
-        # Save the result so the NEXT time you run it, this is also in the history
-        save_patient_trend_data(hash_new, current_report, result)
+    # SCENARIO 2: Trend Analysis (Fetches DB data and compares)
+    elif scenario == "HISTORY_AVAILABLE":
+        print("📊 Message: Previous reports found! Generating Trend Analysis...")
+        result = agent.analyze(current_report, history_list)
         
-        print(f"✅ Patient: {result['patient_name']}")
-        print(f"📊 Trends Found: {len(result['trends'])}\n")
-        
-        for trend in result["trends"]:
-            print(f"Test: {trend['test']} | {trend['previous']} -> {trend['current']} ({trend['change_pct']}%)")
-        
-        print("\n" + "="*50)
-        print("💡 CLINICAL INSIGHT STORED IN DATABASE:")
-        print("="*50)
-        print(result.get("llm_insight"))
-        print("="*50 + "\n")
-    else:
-        print(f"⚠️ Analysis Stopped: {result['status']} - {result['message']}")
+        if result["status"] == "success":
+            save_patient_trend_data(file_hash, current_report, result)
+            print(f"✅ Patient: {result['patient_name']}")
+            print(f"📈 Match found: {len(result['trends'])} tests compared.")
+            for t in result["trends"]:
+                print(f"   - {t['test']}: {t['previous']} -> {t['current']} ({t['change_pct']}%)")
+            print(f"\n💡 AI CLINICAL INSIGHT: {result.get('llm_insight')}")
+
+    # SCENARIO 3: Duplicate Protection
+    elif scenario == "EXISTS_IN_DB" or scenario == "SAME_DATE_REPORT":
+        print("⚠️ Message: This report (or a report from this date) is already in the system.")
+        print("✅ Action: Skipped duplicate processing.")
 
 if __name__ == "__main__":
-    test_database_pipeline()
+    # --- SIMULATION START ---
+    
+    # RUN 1: Upload the older glucose report (The "History")
+    process_single_upload("sample_data/Glucose_report.pdf")
+    
+    # RUN 2: Upload the newer generated report (The "Current")
+    process_single_upload("sample_data/generated_medical_report.pdf")

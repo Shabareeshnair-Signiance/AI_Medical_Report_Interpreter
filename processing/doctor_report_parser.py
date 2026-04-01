@@ -201,24 +201,24 @@ def parse_doctor_report(report_text):
 
 # ----------------- Test ------------------------
 
-if __name__ == "__main__":
-    from processing.pdf_reader import read_pdf
-    file_path = "sample_data/Glucose_report.pdf"
-    print("\n==== Running Doctor Parser Text ====\n")
+# if __name__ == "__main__":
+#     from processing.pdf_reader import read_pdf
+#     file_path = "sample_data/Glucose_report.pdf"
+#     print("\n==== Running Doctor Parser Text ====\n")
 
-    text = read_pdf(file_path)
+#     text = read_pdf(file_path)
 
-    print("\n==== Extracted Text ====\n")
-    print(text[:500])
+#     print("\n==== Extracted Text ====\n")
+#     print(text[:500])
 
-    # Parse report
-    result = parse_doctor_report(text)
-    print("\n==== Parsed Output ====\n")
-    print(f"Patient Name: {result.get('patient_name')}")
-    print(f"Report Date: {result.get('report_date')}\n")
+#     # Parse report
+#     result = parse_doctor_report(text)
+#     print("\n==== Parsed Output ====\n")
+#     print(f"Patient Name: {result.get('patient_name')}")
+#     print(f"Report Date: {result.get('report_date')}\n")
 
-    if result.get("lab_results"):
-        for item in result["lab_results"]:
-            print(item)
-    else:
-        print("No lab results extracted")
+#     if result.get("lab_results"):
+#         for item in result["lab_results"]:
+#             print(item)
+#     else:
+#         print("No lab results extracted")

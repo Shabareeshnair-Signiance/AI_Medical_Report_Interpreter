@@ -15,7 +15,7 @@ from graph.agent_graph import build_medical_graph
 from storage.database import init_database, save_report, generate_file_hash_from_bytes
 
 from graph.doctor_graph import app as doctor_app
-from storage.medical_history_db import get_history_for_patient
+from storage.medical_history_db import get_history_for_patient, init_history_database
 
 from logger_config import logger
 
@@ -345,4 +345,5 @@ def doctor_dashboard():
 
 if __name__ == "__main__":
     init_database()
+    init_history_database()
     app.run(host="0.0.0.0", port=5000, debug=True)

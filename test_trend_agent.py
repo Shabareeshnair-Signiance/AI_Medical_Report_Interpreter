@@ -43,18 +43,32 @@ def process_single_upload(file_path):
         save_patient_trend_data(file_hash, current_report, {"llm_insight": "Baseline established."})
         print(f"✅ Action: {current_report.get('patient_name')} has been registered in the history database.")
 
-    # SCENARIO 2: Trend Analysis (Fetches DB data and compares)
+    # SCENARIO 2: Trend Analysis (Now using LangGraph State)
     elif scenario == "HISTORY_AVAILABLE":
         print("📊 Message: Previous reports found! Generating Trend Analysis...")
-        result = agent.analyze(current_report, history_list)
+        
+        # --- NEW STATE-BASED CALL ---
+        # We prepare the state dictionary that LangGraph expects
+        state = {
+            "current_report": current_report,
+            "history": history_list,
+            "user_symptoms": "I have been feeling very tired and cold lately" # Placeholder for Symlink
+        }
+        
+        # Pass the whole state to the agent
+        result = agent.analyze(state)
         
         if result["status"] == "success":
+            # Note: The result keys now match the new TrendAgent return values
             save_patient_trend_data(file_hash, current_report, result)
-            print(f"✅ Patient: {result['patient_name']}")
+            
+            print(f"✅ Patient: {current_report.get('patient_name')}")
             print(f"📈 Match found: {len(result['trends'])} tests compared.")
             for t in result["trends"]:
                 print(f"   - {t['test']}: {t['previous']} -> {t['current']} ({t['change_pct']}%)")
-            print(f"\n💡 AI CLINICAL INSIGHT: {result.get('llm_insight')}")
+            
+            # Use 'trend_insight' instead of 'llm_insight' to match new Agent code
+            print(f"\n💡 AI TREND INSIGHT: {result.get('trend_insight')}")
 
     # SCENARIO 3: Duplicate Protection
     elif scenario == "EXISTS_IN_DB" or scenario == "SAME_DATE_REPORT":

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Clinical Dashboard</title>
+    <link rel="stylesheet" href="/design/doctor.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🩺 Clinical Diagnostic Assistant</h1>
+            <p>Patient Name: <strong>{{ report.patient_name if report else 'Select a Report' }}</strong></p>
+        </header>
+
+        <main>
+            <section class="upload-section">
+                <form action="/doctor" method="POST" enctype="multipart/form-data">
+                    <input type="file" name="file" required>
+                    <button type="submit" class="btn-primary">Analyze Report</button>
+                </form>
+            </section>
+
+            {% if trend_insight or clinical_suggestion %}
+            <div class="results-grid">
+                
+                <section class="card trend-card">
+                    <div class="card-header">
+                        <span class="icon">📈</span>
+                        <h2>Trend Analysis</h2>
+                    </div>
+                    <div class="card-body">
+                        <p>{{ trend_insight }}</p>
+                    </div>
+                </section>
+
+                <section class="card symlink-card">
+                    <div class="card-header">
+                        <span class="icon">🔍</span>
+                        <h2>Clinical Detective Suggestion</h2>
+                    </div>
+                    <div class="card-body">
+                        <p>{{ clinical_suggestion | replace('\n', '<br>') | safe }}</p>
+                    </div>
+                </section>
+
+                <section class="card history-card">
+                    <div class="card-header">
+                        <span class="icon">📜</span>
+                        <h2>Past Medical Records</h2>
+                    </div>
+                    <div class="card-body">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Lab Name</th>
+                                    <th>Test Summary</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if history %}
+                                    {% for item in history %}
+                                    <tr>
+                                        <td>{{ item.report_date }}</td>
+                                        <td>{{ item.lab_name }}</td>
+                                        <td>{{ item.summary }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="3">No previous history found in database.</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+            </div>
+            {% endif %}
+        </main>
+    </div>
+
+    <script src="/logic/doctor.js"></script>
+</body>
+</html>

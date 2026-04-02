@@ -13,6 +13,10 @@ from processing.llm_extractor import llm_extract_medical_data
 from processing.report_parser import parse_medical_report
 from graph.agent_graph import build_medical_graph
 from storage.database import init_database, save_report, generate_file_hash_from_bytes
+
+from graph.doctor_graph import app as doctor_app
+from storage.medical_history_db import get_history_for_patient
+
 from logger_config import logger
 
 # For Dropdown purpose
@@ -297,6 +301,47 @@ def chat():
     except Exception as e:
         logger.error(f"Chat route error: {str(e)}")
         return jsonify({"response": "Chat failed"})
+    
+# This is a new page for doctor's
+@app.route("/doctor", methods=["GET", "POST"])
+def doctor_dashboard():
+    try:
+        if request.method == "POST":
+            file = request.files.get("file")
+            if not file:
+                return "No file uploaded"
+
+            # Save the file temporarily
+            file_path = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
+            file.save(file_path)
+
+            # RUN YOUR NEW DOCTOR LANGGRAPH
+            input_state = {"file_path": file_path}
+            logger.info("Running Doctor's Clinical Workflow")
+            final_output = doctor_app.invoke(input_state)
+
+            # Get patient info to show history in the UI
+            report = final_output.get("current_report", {})
+            pid = report.get("pid") or report.get("lab_no")
+            name = report.get("patient_name")
+            
+            # Fetch history to show the doctor a table of past results
+            past_history = get_history_for_patient(pid=pid, name=name)
+
+            return render_template(
+                "doctor.html",  # You will create this new HTML file
+                report=report,
+                clinical_suggestion=final_output.get("clinical_suggestion"),
+                trend_insight=final_output.get("trend_insight"),
+                trends=final_output.get("trends", []),
+                history=past_history
+            )
+
+        return render_template("doctor.html")
+
+    except Exception as e:
+        logger.error(f"Doctor Dashboard Error: {str(e)}")
+        return f"Error: {str(e)}"
 
 if __name__ == "__main__":
     init_database()

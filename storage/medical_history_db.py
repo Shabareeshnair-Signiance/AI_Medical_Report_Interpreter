@@ -55,6 +55,23 @@ def check_file_exists(file_hash):
     except Exception as e:
         logger.error(f"Hash check failed: {str(e)}")
         return False
+    
+def get_existing_analysis(file_hash):
+    """Checks if we already have the analysis for this specific file in the DB."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        # We fetch both the Trend Agent result and the Symlink Agent result
+        cursor.execute("""
+            SELECT llm_insight, clinical_suggestion 
+            FROM patient_reports WHERE file_hash = ?
+        """, (file_hash,))
+        row = cursor.fetchone()
+        conn.close()
+        return row if row else None
+    except Exception as e:
+        logger.error(f"Error fetching existing analysis: {e}")
+        return None
 
 def get_history_for_patient(pid=None, name=None):
     """Retrieves all previous reports for the Trend Agent to compare against."""

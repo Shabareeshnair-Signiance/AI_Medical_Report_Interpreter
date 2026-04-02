@@ -45,10 +45,22 @@ class TrendAgent:
         chain = prompt | self.llm | StrOutputParser()
         return chain.invoke({"patient_name": patient_name, "trends_json": json.dumps(trends)})
 
-    def analyze(self, current_report, history):
-        # 1. History Check & Chronological Sorting
+    def analyze(self, state: dict):
+        """
+        LANGGRAPH NODE: Analyzes trends based on the current state.
+        Expects: state['current_report'], state['history']
+        Updates: state['trends'], state['trend_insight'], state['status']
+        """
+        current_report = state.get("current_report")
+        history = state.get("history", [])
+
+        # 1. History Check
         if not history:
-            return {"status": "new_patient", "message": "No history found.", "trends": []}
+            return {
+                "status": "new_patient", 
+                "trend_message": "No history found.", 
+                "trends": []
+            }
 
         try:
             history = sorted(history, key=lambda x: datetime.strptime(x.get('report_date', '1900-01-01'), "%Y-%m-%d"))
@@ -56,8 +68,7 @@ class TrendAgent:
         
         last_report = history[-1]
 
-        # 2. LAYERED IDENTITY CHECK (The "Unbreakable" Logic)
-        # Check for ANY shared unique identifier
+        # 2. LAYERED IDENTITY CHECK
         curr_ids = {current_report.get(k) for k in ['pid', 'lab_no', 'reg_no', 'uhid'] if current_report.get(k)}
         prev_ids = {last_report.get(k) for k in ['pid', 'lab_no', 'reg_no', 'uhid'] if last_report.get(k)}
         
@@ -66,39 +77,37 @@ class TrendAgent:
             id_confirmed = True
 
         if not id_confirmed:
-            # Fallback: Name + DOB (Two-factor authentication)
             curr_name = current_report.get('patient_name', '').lower().strip()
             prev_name = last_report.get('patient_name', '').lower().strip()
             curr_dob = current_report.get('dob')
             prev_dob = last_report.get('dob')
 
             if curr_name != prev_name:
-                return {"status": "identity_mismatch", "message": "CRITICAL: Patient names do not match."}
+                return {"status": "identity_mismatch", "trend_message": "Patient names do not match."}
             
-            # If both reports have DOB, they MUST match
             if curr_dob and prev_dob and curr_dob != prev_dob:
-                return {"status": "identity_mismatch", "message": "CRITICAL: Date of Birth mismatch."}
+                return {"status": "identity_mismatch", "trend_message": "Date of Birth mismatch."}
 
-        # 3. DUPLICATE & RECENTNESS CHECK
+        # 3. DUPLICATE CHECK
         if current_report.get('report_date') == last_report.get('report_date'):
-            # Only allow if time is different (morning vs evening test)
             if current_report.get('report_time') == last_report.get('report_time'):
-                return {"status": "duplicate", "message": "This report already exists in history."}
+                return {"status": "duplicate", "trend_message": "Report already exists."}
 
         # 4. MATCHING & MATH
         old_data = {self._normalize(t['test']): t['value'] for t in last_report['lab_results']}
         trends = []
 
         for item in current_report['lab_results']:
-            curr_raw_name = item['test']
-            curr_norm_name = self._normalize(curr_raw_name)
+            curr_norm_name = self._normalize(item['test'])
             match_name = None
             
             if curr_norm_name in old_data:
                 match_name = curr_norm_name
             else:
-                best_match, score = process.extractOne(curr_norm_name, list(old_data.keys()))
-                if score > 80: match_name = best_match
+                existing_tests = list(old_data.keys())
+                if existing_tests:
+                    best_match, score = process.extractOne(curr_norm_name, existing_tests)
+                    if score > 80: match_name = best_match
 
             if match_name:
                 v_new = self._get_float_value(item['value'])
@@ -107,21 +116,20 @@ class TrendAgent:
                 if v_new is not None and v_old is not None and v_old != 0:
                     change = ((v_new - v_old) / v_old) * 100
                     trends.append({
-                        "test": curr_raw_name,
+                        "test": item['test'],
                         "current": item['value'],
                         "previous": old_data[match_name],
                         "change_pct": round(change, 2)
                     })
 
         if not trends:
-            return {"status": "no_matches", "message": "No matching tests found for trend analysis."}
+            return {"status": "no_matches", "trend_message": "No matching tests for trend analysis."}
 
-        # 5. GENERATE INSIGHT
+        # 5. GENERATE INSIGHT & RETURN STATE UPDATE
         insight = self._generate_llm_insight(current_report.get('patient_name'), trends)
 
         return {
             "status": "success",
-            "patient_name": current_report.get('patient_name'),
             "trends": trends,
-            "llm_insight": insight
+            "trend_insight": insight
         }

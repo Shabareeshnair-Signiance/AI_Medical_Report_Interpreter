@@ -5,6 +5,7 @@ from thefuzz import process
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from llm.llm_provider import get_llm
+from logger_config import logger
 
 class TrendAgent:
     def __init__(self):
@@ -66,25 +67,33 @@ class TrendAgent:
         history = state.get("history", [])
         patient_name = current_report.get('patient_name', 'Patient')
 
-        # --- 1. BASELINE LOGIC (If no history exists) ---
-        if not history:
-            # We treat the current report as the "trends" list for the LLM to summarize
+        # --- 1. BASELINE LOGIC ---
+        # If history is empty OR only contains the current report we just saved
+        if not history or len(history) < 2:
             current_results = current_report.get('lab_results', [])
             insight = self._generate_llm_insight(patient_name, current_results, is_baseline=True)
             
             return {
                 "status": "success", 
                 "trend_insight": insight, 
-                "trends": [], # No historical changes yet
-                "history": []
+                "trends": [], 
+                "history": history
             }
 
         # --- 2. HISTORY PREPARATION ---
         try:
+            # Sort by date: Oldest -> Newest
             history = sorted(history, key=lambda x: datetime.strptime(x.get('report_date', '1900-01-01'), "%Y-%m-%d"))
-        except: pass 
-        
-        last_report = history[-1]
+            
+            # history[-1] is the report you just uploaded.
+            # history[-2] is the TRUE previous report.
+            last_report = history[-2] 
+        except Exception as e:
+            logger.error(f"Sorting error: {e}")
+            # Fallback to the first item if sorting fails
+            last_report = history[0]
+
+        # REMOVED: last_report = history[-1] <--- This was the bug!
 
         # --- 3. IDENTITY CHECK ---
         curr_ids = {current_report.get(k) for k in ['pid', 'lab_no', 'reg_no', 'uhid'] if current_report.get(k)}
@@ -98,13 +107,15 @@ class TrendAgent:
             curr_name_low = patient_name.lower().strip()
             prev_name_low = last_report.get('patient_name', '').lower().strip()
             if curr_name_low != prev_name_low:
-                return {"status": "identity_mismatch", "trend_insight": "Error: Patient name mismatch."}
+                # If name and ID both fail to match, it's a different person
+                return {"status": "identity_mismatch", "trend_insight": "Error: Patient identity could not be verified."}
 
         # --- 4. MATCHING & TREND CALCULATION ---
-        old_data = {self._normalize(t['test']): t['value'] for t in last_report['lab_results']}
+        # Use the lab_results from history[-2] (the old report)
+        old_data = {self._normalize(t['test']): t['value'] for t in last_report.get('lab_results', [])}
         trends = []
 
-        for item in current_report['lab_results']:
+        for item in current_report.get('lab_results', []):
             curr_norm_name = self._normalize(item['test'])
             match_name = None
             
@@ -131,8 +142,7 @@ class TrendAgent:
 
         # --- 5. GENERATE FINAL INSIGHT ---
         if not trends:
-            # If we have history but no matching tests, we still summarize the current state
-            insight = self._generate_llm_insight(patient_name, current_report['lab_results'], is_baseline=True)
+            insight = self._generate_llm_insight(patient_name, current_report.get('lab_results', []), is_baseline=True)
             return {"status": "success", "trend_insight": insight, "trends": []}
 
         insight = self._generate_llm_insight(patient_name, trends, is_baseline=False)

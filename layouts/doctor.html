@@ -5,53 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Doctor Clinical Dashboard</title>
     <link rel="stylesheet" href="/design/doctor.css">
-    <style>
-        /* Modern Validation Bar Styling */
-        .validation-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px 25px;
-            margin-bottom: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            transition: all 0.3s ease;
-        }
-
-        /* Status-specific Themes */
-        .status-new { background: #f0f7ff; border-left: 6px solid #007bff; }
-        .status-history { background: #f6fff6; border-left: 6px solid #28a745; }
-        .status-duplicate { background: #fffaf0; border-left: 6px solid #ff9800; }
-        .status-invalid { background: #fff5f5; border-left: 6px solid #dc3545; }
-
-        .status-badge {
-            padding: 6px 14px;
-            border-radius: 25px;
-            font-size: 0.8rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .badge-new { background: #cce5ff; color: #004085; }
-        .badge-history { background: #d4edda; color: #155724; }
-        .badge-duplicate { background: #ffeeba; color: #856404; }
-        .badge-invalid { background: #f8d7da; color: #721c24; }
-
-        .meta-text {
-            font-size: 0.9rem;
-            color: #555;
-        }
-
-        .meta-text strong { color: #222; }
-
-        .error-message {
-            color: #dc3545;
-            font-weight: bold;
-            margin-top: 10px;
-        }
-    </style>
 </head>
 <body>
     <div class="container">
@@ -71,48 +24,76 @@
             </section>
 
             {% if validation %}
-                <div class="validation-bar 
-                    {% if not validation.is_valid %}status-invalid
-                    {% elif validation.status == 'DUPLICATE' %}status-duplicate
-                    {% elif validation.status == 'HISTORY_FOUND' %}status-history
-                    {% else %}status-new{% endif %}">
-                    
-                    <div class="patient-info">
-                        {% if validation.is_valid %}
-                            <div class="meta-text">
-                                <strong>Patient:</strong> {{ validation.patient_name }} | 
-                                <strong>ID:</strong> {{ validation.pid or 'N/A' }} | 
-                                <strong>Report Date:</strong> {{ validation.report_date or 'N/A' }}
-                            </div>
-                            {% if validation.status == 'DUPLICATE' %}
-                                <div class="meta-text" style="margin-top: 5px; color: #856404;">
-                                    ℹ️ This exact file was previously stored on: <strong>{{ validation.stored_on }}</strong>
-                                </div>
+            <section class="validation-container">
+                <div class="validation-card {% if not validation.is_valid %}val-invalid{% endif %}">
+                    <div class="val-header">
+                        <h2>Validation Details</h2>
+                        <div class="val-badge-large">
+                            {% if not validation.is_valid %}
+                                <span class="v-icon">🚫</span> Status: <span class="v-status">Invalid</span>
+                            {% else %}
+                                <span class="v-icon">✅</span> Status: <span class="v-status">Valid</span>
                             {% endif %}
-                        {% else %}
-                            <div class="error-message">
-                                ⚠️ Invalid Document: {{ validation.error_message or 'The uploaded file is not a valid medical report.' }}
-                            </div>
-                        {% endif %}
+                        </div>
                     </div>
-                    
-                    <div class="status-info">
-                        {% if not validation.is_valid %}
-                            <span class="status-badge badge-invalid">🚫 REJECTED</span>
-                        {% elif validation.status == 'DUPLICATE' %}
-                            <span class="status-badge badge-duplicate">♻️ LOADED FROM CACHE</span>
-                        {% elif validation.status == 'HISTORY_FOUND' %}
-                            <span class="status-badge badge-history">📂 HISTORY FOUND ({{ validation.history_count }} RECORDS)</span>
-                        {% else %}
-                            <span class="status-badge badge-new">🆕 NEW PATIENT RECORD</span>
-                        {% endif %}
+
+                    <div class="val-content">
+                        <div class="val-info-group">
+                            <label>Report Verification</label>
+                            <p class="val-msg">
+                                {% if validation.is_valid %}
+                                    Report format verified successfully
+                                {% else %}
+                                    {{ validation.error_message or 'The uploaded file is not a valid medical report.' }}
+                                {% endif %}
+                            </p>
+                        </div>
+
+                        <div class="val-info-group">
+                            <label>Report Type</label>
+                            <span class="type-pill">
+                                {% if validation.status == 'DUPLICATE' %}
+                                    🔄 Existing (Cached)
+                                {% elif validation.status == 'HISTORY_FOUND' %}
+                                    📜 Historical Match
+                                {% else %}
+                                    🆕 New Record
+                                {% endif %}
+                            </span>
+                        </div>
+
+                        <div class="val-divider"></div>
+
+                        <div class="val-patient-details">
+                            <h3>Patient Details</h3>
+                            <div class="details-grid">
+                                <div class="detail-item">
+                                    <span class="label">Name:</span>
+                                    <span class="value">{{ validation.patient_name or 'Unknown' }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="label">PID:</span>
+                                    <span class="value">{{ validation.pid or 'N/A' }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="label">Date:</span>
+                                    <span class="value">{{ validation.report_date or 'Not Found' }}</span>
+                                </div>
+                            </div>
+                            
+                            {% if validation.status == 'DUPLICATE' %}
+                            <div class="cache-info">
+                                ℹ️ This exact file was previously stored on: <strong>{{ validation.stored_on or 'Unknown' }}</strong>
+                            </div>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
+            </section>
             {% endif %}
 
             {% if trend_insight or clinical_suggestion %}
             <div class="results-grid">
-                
                 <section class="card trend-card">
                     <div class="card-header">
                         <span class="icon">📈</span>
@@ -165,12 +146,10 @@
                         </table>
                     </div>
                 </section>
-
             </div>
             {% endif %}
         </main>
     </div>
-
     <script src="/logic/doctor.js"></script>
 </body>
 </html>

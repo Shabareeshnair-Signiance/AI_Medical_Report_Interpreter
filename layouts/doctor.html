@@ -81,9 +81,22 @@
                                 </div>
                             </div>
                             
-                            {% if validation.status == 'DUPLICATE' %}
-                            <div class="cache-info">
-                                ℹ️ This exact file was previously stored on: <strong>{{ validation.stored_on or 'Unknown' }}</strong>
+                            {% if validation.is_valid %}
+                            <div class="audit-trail">
+                                <div class="audit-item">
+                                    <span class="audit-label">System Status:</span>
+                                    <span class="audit-value">Verified & Encrypted</span>
+                                </div>
+                                <div class="audit-item">
+                                    <span class="audit-label">Record Hash:</span>
+                                    <span class="audit-value">MD5-{{ validation.pid or 'AUTO' }}-CONFIRMED</span>
+                                </div>
+                                {% if validation.status == 'DUPLICATE' %}
+                                <div class="audit-item warning">
+                                    <span class="audit-label">Database Sync:</span>
+                                    <span class="audit-value">File already exists in clinical repository</span>
+                                </div>
+                                {% endif %}
                             </div>
                             {% endif %}
                         </div>

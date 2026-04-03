@@ -206,3 +206,46 @@ tr:hover { background-color: #f0f7ff; }
     .upload-container { flex-direction: column; }
     .val-header { flex-direction: column; align-items: flex-start; gap: 10px; }
 }
+
+/* Professional Audit Trail Styling */
+.audit-trail {
+    margin-top: 25px;
+    padding: 15px 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.audit-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.audit-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #6c757d;
+    letter-spacing: 0.5px;
+}
+
+.audit-value {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9rem;
+    color: #28a745;
+    font-weight: 600;
+}
+
+.audit-item.warning .audit-value {
+    color: #fd7e14;
+}
+
+/* Make Patient Details look more official */
+.detail-item .value {
+    color: #0056b3;
+    font-weight: 600;
+}

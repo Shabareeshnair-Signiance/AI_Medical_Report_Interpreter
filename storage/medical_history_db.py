@@ -4,11 +4,18 @@ import json
 import os
 from logger_config import logger
 
-# Storing in the same 'data' folder as your existing project
 DB_PATH = os.path.join(os.getcwd(), "data", "medical_history.db")
 
+def calculate_file_hash(file_path):
+    """Generates a SHA-256 hash to uniquely identify the report file."""
+    sha256_hash = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for byte_block in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(byte_block)
+    return sha256_hash.hexdigest()
+
 def init_history_database():
-    """Initializes a database specifically designed for tracking patient trends over time."""
+    """Initializes the doctor's history table with the clinical suggestion column."""
     try:
         os.makedirs("data", exist_ok=True)
         conn = sqlite3.connect(DB_PATH)
@@ -26,68 +33,23 @@ def init_history_database():
         )
         """)
         
-        # Ensure column exists for older DB versions
+        # Check if column exists for older databases
         cursor.execute("PRAGMA table_info(patient_reports)")
         columns = [column[1] for column in cursor.fetchall()]
         if "clinical_suggestion" not in columns:
             cursor.execute("ALTER TABLE patient_reports ADD COLUMN clinical_suggestion TEXT")
-            logger.info("Added clinical_suggestion column to existing database.")
 
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_patient_history ON patient_reports(patient_id, patient_name)")
 
         conn.commit()
         conn.close()
-        logger.info("Doctor's History Database initialized successfully")
+        logger.info("Doctor's History Database initialized with Hash support.")
     except Exception as e:
-        logger.error(f"History Database initialization failed: {str(e)}")
+        logger.error(f"DB Init failed: {str(e)}")
 
-def get_history_for_patient(pid=None, name=None):
-    """Retrieves all previous reports for the Trend Agent to compare against."""
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        # Allows accessing columns by name
-        conn.row_factory = sqlite3.Row 
-        cursor = conn.cursor()
-
-        # Clean the name for better matching
-        clean_name = name.lower().strip() if name else None
-
-        # FIX: Select ALL columns so the TrendAgent has the data it needs for Identity Checks
-        if pid:
-            cursor.execute("""
-                SELECT medical_data, report_date, patient_id, patient_name 
-                FROM patient_reports 
-                WHERE patient_id = ? 
-                ORDER BY report_date ASC
-            """, (pid,))
-        else:
-            cursor.execute("""
-                SELECT medical_data, report_date, patient_id, patient_name 
-                FROM patient_reports 
-                WHERE LOWER(patient_name) = ? 
-                ORDER BY report_date ASC
-            """, (clean_name,))
-
-        rows = cursor.fetchall()
-        conn.close()
-
-        history = []
-        for row in rows:
-            # FIX: Ensure lab_results is parsed from JSON string back to a list
-            history.append({
-                "lab_results": json.loads(row["medical_data"]),
-                "report_date": row["report_date"],
-                "pid": row["patient_id"],
-                "patient_name": row["patient_name"]
-            })
-        
-        return history
-    except Exception as e:
-        logger.error(f"Failed to fetch history: {str(e)}")
-        return []
 
 def save_patient_trend_data(file_hash, extracted_data, trend_result):
-    """Saves the extraction, trend insights, and clinical suggestions into history."""
+    """Saves the AI results using the file_hash as the unique key."""
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
@@ -95,14 +57,9 @@ def save_patient_trend_data(file_hash, extracted_data, trend_result):
         pid = extracted_data.get("pid") or extracted_data.get("lab_no")
         name = extracted_data.get("patient_name", "").strip()
         report_date = extracted_data.get("report_date")
-        
-        # Save the lab results as a JSON string
         medical_json = json.dumps(extracted_data.get("lab_results", []))
         
-        # 1. Capture Trend Agent Output
         insight = trend_result.get("trend_insight", "")
-        
-        # 2. Capture Symlink Agent Output (Using the key that matches your App/UI)
         suggestion = trend_result.get("clinical_suggestion", "")
 
         cursor.execute("""
@@ -113,12 +70,12 @@ def save_patient_trend_data(file_hash, extracted_data, trend_result):
 
         conn.commit()
         conn.close()
-        logger.info(f"Analysis for {name} ({report_date}) saved to Database.")
     except Exception as e:
-        logger.error(f"Failed to save trend data: {str(e)}")
+        logger.error(f"Failed to save data for hash {file_hash}: {str(e)}")
+
 
 def check_file_exists(file_hash):
-    """Checks if this exact file has already been processed using its hash."""
+    """Uses the hashlib hash to see if we have already processed this file."""
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()

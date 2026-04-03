@@ -329,18 +329,23 @@ def doctor_dashboard():
 
             # 3. PHASE 2: DUPLICATE HANDLING (Instant Response)
             if validation["status"] == "DUPLICATE":
-                logger.info("Found cached analysis. Skipping LangGraph.")
-                existing_analysis = validation["existing_analysis"]
+                logger.info(f"Loading data for {validation['patient_name']}")
+                existing_data = validation["existing_analysis"]
                 
-                # Fetch history for the table even if it's a duplicate
-                past_history = get_history_for_patient(pid=validation["pid"], name=validation["patient_name"])
+                # Re-fetch history using the REAL name and PID found in the cache
+                past_history = get_history_for_patient(
+                    pid=validation["pid"], 
+                    name=validation["patient_name"]
+                )
                 
                 return render_template(
                     "doctor.html",
                     validation=validation,
-                    trend_insight=existing_analysis[0],      # llm_insight from DB
-                    clinical_suggestion=existing_analysis[1], # clinical_suggestion from DB
+                    # Ensure these indices match your DB 'SELECT' order
+                    trend_insight=existing_data[0],      
+                    clinical_suggestion=existing_data[1], 
                     history=past_history,
+                    report={"patient_name": validation["patient_name"]}, # Fixes the header
                     status="CACHED"
                 )
 

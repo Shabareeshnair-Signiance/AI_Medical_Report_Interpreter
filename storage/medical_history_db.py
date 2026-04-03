@@ -49,43 +49,35 @@ def init_history_database():
 
 
 def get_history_for_patient(pid=None, name=None):
-    """Retrieves all previous reports for the Trend Agent to compare against."""
+    """Retrieves all previous reports for the table and trend agent."""
     try:
         conn = sqlite3.connect(DB_PATH)
-        # Allows accessing columns by name
         conn.row_factory = sqlite3.Row 
         cursor = conn.cursor()
 
-        # Clean the name for better matching
         clean_name = name.lower().strip() if name else None
 
-        # FIX: Select ALL columns so the TrendAgent has the data it needs for Identity Checks
-        if pid:
-            cursor.execute("""
-                SELECT medical_data, report_date, patient_id, patient_name 
-                FROM patient_reports 
-                WHERE patient_id = ? 
-                ORDER BY report_date ASC
-            """, (pid,))
-        else:
-            cursor.execute("""
-                SELECT medical_data, report_date, patient_id, patient_name 
-                FROM patient_reports 
-                WHERE LOWER(patient_name) = ? 
-                ORDER BY report_date ASC
-            """, (clean_name,))
+        # Added llm_insight as 'summary' so the table has text to show
+        query = """
+            SELECT medical_data, report_date, patient_id, patient_name, llm_insight
+            FROM patient_reports 
+            WHERE patient_id = ? OR LOWER(patient_name) = ?
+            ORDER BY report_date ASC
+        """
+        cursor.execute(query, (str(pid), clean_name))
 
         rows = cursor.fetchall()
         conn.close()
 
         history = []
         for row in rows:
-            # FIX: Ensure lab_results is parsed from JSON string back to a list
             history.append({
                 "lab_results": json.loads(row["medical_data"]),
                 "report_date": row["report_date"],
                 "pid": row["patient_id"],
-                "patient_name": row["patient_name"]
+                "patient_name": row["patient_name"],
+                "lab_name": "Stored Report", # Placeholder since lab_name isn't in your schema yet
+                "summary": row["llm_insight"][:100] + "..." if row["llm_insight"] else "No summary available"
             })
         
         return history
@@ -136,18 +128,26 @@ def get_existing_analysis(file_hash):
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        # We fetch both the Trend Agent result and the Symlink Agent result
+        # FIX: Added patient_name, patient_id, and report_date to the SELECT
         cursor.execute("""
-            SELECT llm_insight, clinical_suggestion 
-            FROM patient_reports WHERE file_hash = ?
+            SELECT 
+                llm_insight, 
+                clinical_suggestion, 
+                patient_name, 
+                patient_id, 
+                report_date 
+            FROM patient_reports 
+            WHERE file_hash = ?
         """, (file_hash,))
+        
         row = cursor.fetchone()
         conn.close()
+        
+        # This now returns a tuple of 5 items, preventing the Index Error
         return row if row else None
     except Exception as e:
         logger.error(f"Error fetching existing analysis: {e}")
         return None
-
 
 def get_report_scenario(file_hash, extracted_data):
     """PRODUCTION LOGIC: Determines which scenario the current report falls into."""

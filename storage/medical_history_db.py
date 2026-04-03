@@ -48,6 +48,51 @@ def init_history_database():
         logger.error(f"DB Init failed: {str(e)}")
 
 
+def get_history_for_patient(pid=None, name=None):
+    """Retrieves all previous reports for the Trend Agent to compare against."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        # Allows accessing columns by name
+        conn.row_factory = sqlite3.Row 
+        cursor = conn.cursor()
+
+        # Clean the name for better matching
+        clean_name = name.lower().strip() if name else None
+
+        # FIX: Select ALL columns so the TrendAgent has the data it needs for Identity Checks
+        if pid:
+            cursor.execute("""
+                SELECT medical_data, report_date, patient_id, patient_name 
+                FROM patient_reports 
+                WHERE patient_id = ? 
+                ORDER BY report_date ASC
+            """, (pid,))
+        else:
+            cursor.execute("""
+                SELECT medical_data, report_date, patient_id, patient_name 
+                FROM patient_reports 
+                WHERE LOWER(patient_name) = ? 
+                ORDER BY report_date ASC
+            """, (clean_name,))
+
+        rows = cursor.fetchall()
+        conn.close()
+
+        history = []
+        for row in rows:
+            # FIX: Ensure lab_results is parsed from JSON string back to a list
+            history.append({
+                "lab_results": json.loads(row["medical_data"]),
+                "report_date": row["report_date"],
+                "pid": row["patient_id"],
+                "patient_name": row["patient_name"]
+            })
+        
+        return history
+    except Exception as e:
+        logger.error(f"Failed to fetch history: {str(e)}")
+        return []
+
 def save_patient_trend_data(file_hash, extracted_data, trend_result):
     """Saves the AI results using the file_hash as the unique key."""
     try:
@@ -72,7 +117,6 @@ def save_patient_trend_data(file_hash, extracted_data, trend_result):
         conn.close()
     except Exception as e:
         logger.error(f"Failed to save data for hash {file_hash}: {str(e)}")
-
 
 def check_file_exists(file_hash):
     """Uses the hashlib hash to see if we have already processed this file."""

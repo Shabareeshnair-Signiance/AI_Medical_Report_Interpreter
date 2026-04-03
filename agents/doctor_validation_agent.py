@@ -18,29 +18,59 @@ class DoctorValidationAgent:
     def __init__(self):
         self.allowed_extensions = [".pdf"]
 
+        # Adding the keywords to verify if the documents is actually a medical report
+        self.medical_keywords = [
+            "hemoglobin", "platelet", "blood", "urine",
+            "test", "lab", "report", "glucose", "wbc",
+            "rbc", "thyroid", "vitamin", "serum"
+        ]
+
+    def _is_medical_content(self, text):
+        """Helper to check if the text contains medical terminology."""
+        if not text: return False
+        text_lower = text.lower()
+        # Count how many medical keywords appear in the text
+        matches = sum(1 for word in self.medical_keywords if word in text_lower)
+        # If at least 3 keywords match, we consider it a medical report
+        return matches >= 3
+
     def validate_for_doctor(self, file_path):
         logger.info(f"Doctor Validation: Checking file {file_path}")
 
-        # 1. Generate Hash for Duplicate Check
+        # 1. Read PDF first to check content validity
+        text = read_pdf(file_path)
+        
+        # ADDED: Medical Content Check
+        if not self._is_medical_content(text):
+            logger.warning(f"Validation Failed: {file_path} does not appear to be a medical report.")
+            return {
+                "is_valid": False,
+                "status": "INVALID_FORMAT",
+                "error_message": "The uploaded file does not appear to be a valid medical lab report."
+            }
+
+        # 2. Generate Hash for Duplicate Check
         file_hash = calculate_file_hash(file_path)
         
-        # 2. Instant Check: Is this exact file already in the DB?
+        # 3. Instant Check: Is this exact file already in the DB?
         existing = get_existing_analysis(file_hash)
         if existing:
             logger.info("Duplicate file detected. Loading real data from cache.")
+            # Note: 'existing' structure depends on your DB schema. 
+            # Assuming: (id, hash, name, pid, report_date, analysis_json, created_at)
             return {
                 "status": "DUPLICATE",
                 "is_valid": True,
                 "file_hash": file_hash,
                 "existing_analysis": existing, 
-                "patient_name": existing[2], # Get actual name from DB record
-                "pid": existing[3],          # Get actual PID from DB record
-                "report_date": existing[4],  # Get actual Date from DB record
+                "patient_name": existing[2], 
+                "pid": existing[3],          
+                "report_date": existing[4],
+                "stored_on": existing[6] if len(existing) > 6 else "Unknown", # ADDED: created_at date
                 "history_count": 0
             }
 
-        # 3. Extract Identity using Doctor-Specific LLM
-        text = read_pdf(file_path)
+        # 4. Extract Identity using Doctor-Specific LLM
         identity = llm_extract_doctor_identity(text)
 
         result = {
@@ -48,56 +78,60 @@ class DoctorValidationAgent:
             "status": "NEW_REPORT",
             "file_hash": file_hash,
             "patient_name": identity.get("name"),
-            "pid": identity.get("identifier"),
+            "pid": identity.get("identifier") or identity.get("pid") or "N/A",
             "report_date": identity.get("date"),
             "history_count": 0,
             "existing_analysis": None
         }
 
-        # 4. Basic Validation: Name is mandatory
-        if not result["patient_name"]:
+        # 5. Mandatory Field Check: Patient Name
+        if not result["patient_name"] or result["patient_name"].lower() in ["unknown", "not found"]:
             result["is_valid"] = False
+            result["status"] = "MISSING_IDENTITY"
             logger.warning("Validation Failed: No patient name extracted.")
             return result
         
-        # 5. Check for Patient History (PID or Name match)
+        # 6. Check for Patient History (PID or Name match)
         history = get_history_for_patient(pid=result["pid"], name=result["patient_name"])
 
         if history:
+            # Sort history by date to find the 'most recent stored' date
             result["status"] = "HISTORY_FOUND"
             result["history_count"] = len(history)
+            # Pass the date of the last report to the UI
+            result["last_visit"] = history[-1][4] if history else None 
         else:
             result["status"] = "NEW_PATIENT"
             
         return result
 
 # --- TESTING CODE ---
-if __name__ == "__main__":
-    # 1. Setup DB
-    init_history_database()
+# if __name__ == "__main__":
+#     # 1. Setup DB
+#     init_history_database()
     
-    agent = DoctorValidationAgent()
+#     agent = DoctorValidationAgent()
     
-    # 2. Define a test file path (Make sure this file exists in your data/uploads)
-    test_file_path = "sample_data/Glucose_report.pdf" 
+#     # 2. Define a test file path (Make sure this file exists in your data/uploads)
+#     test_file_path = "sample_data/Glucose_report.pdf" 
     
-    if os.path.exists(test_file_path):
-        print("\n" + "="*30)
-        print("RUNNING DOCTOR VALIDATION TEST")
-        print("="*30)
+#     if os.path.exists(test_file_path):
+#         print("\n" + "="*30)
+#         print("RUNNING DOCTOR VALIDATION TEST")
+#         print("="*30)
         
-        test_result = agent.validate_for_doctor(test_file_path)
+#         test_result = agent.validate_for_doctor(test_file_path)
         
-        print(f"File Status:    {test_result['status']}")
-        print(f"Patient Name:   {test_result['patient_name']}")
-        print(f"Identifier:     {test_result['pid']}")
-        print(f"Report Date:    {test_result.get('report_date')}")
-        print(f"History Found:  {test_result['history_count']} reports")
-        print("-" * 30)
+#         print(f"File Status:    {test_result['status']}")
+#         print(f"Patient Name:   {test_result['patient_name']}")
+#         print(f"Identifier:     {test_result['pid']}")
+#         print(f"Report Date:    {test_result.get('report_date')}")
+#         print(f"History Found:  {test_result['history_count']} reports")
+#         print("-" * 30)
         
-        if test_result['is_valid']:
-            print("SUCCESS: Validation logic is working!")
-        else:
-            print("FAILED: Validation marked as invalid.")
-    else:
-        print(f"\n[!] Test Skipped: Please place a file at {test_file_path} to run the test.")
+#         if test_result['is_valid']:
+#             print("SUCCESS: Validation logic is working!")
+#         else:
+#             print("FAILED: Validation marked as invalid.")
+#     else:
+#         print(f"\n[!] Test Skipped: Please place a file at {test_file_path} to run the test.")

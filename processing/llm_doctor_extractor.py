@@ -6,7 +6,25 @@ import json
 import re
 import os
 from datetime import datetime
+from dateutil import parser
 
+
+# -------- NEW: Date Normalization (The Safety Net) --------
+def normalize_date(date_str):
+    """
+    Converts messy dates like '03-Apr-2026' or '04/03/26' into '2026-04-03'.
+    If parsing fails, it uses the current system date.
+    """
+    if not date_str or str(date_str).strip() in ["", "None", "Not Available"]:
+        return datetime.now().strftime("%Y-%m-%d")
+    
+    try:
+        # fuzzy=True helps ignore extra text around the date
+        parsed_dt = parser.parse(str(date_str), fuzzy=True)
+        return parsed_dt.strftime("%Y-%m-%d")
+    except (ValueError, TypeError):
+        logger.warning(f"Date parsing failed for: {date_str}. Falling back to today.")
+        return datetime.now().strftime("%Y-%m-%d")
 
 # -------- Clean LLM Output --------
 def clean_llm_output(response):
@@ -37,24 +55,24 @@ def get_file_date(file_path):
 
 # -------- LLM Extractor --------
 def llm_doctor_extractor(report_text, file_path=None):
-
     try:
         logger.info("LLM Doctor Extractor Started")
 
         prompt_text = load_prompt()
+        curr_date_str = datetime.now().strftime("%Y-%m-%d")
 
         prompt = PromptTemplate(
-            input_variables=["report_text"],
+            input_variables=["report_text", "current_date"],
             template=prompt_text
         )
 
         llm = get_llm()
-
-        # LCEL chain
         chain = prompt | llm | StrOutputParser()
 
+        # Inject current_date so the LLM has a default reference
         response = chain.invoke({
-            "report_text": report_text
+            "report_text": report_text,
+            "current_date": curr_date_str
         })
 
         cleaned = clean_llm_output(response)
@@ -63,29 +81,18 @@ def llm_doctor_extractor(report_text, file_path=None):
             data = json.loads(cleaned)
         except Exception as e:
             logger.error(f"JSON Parsing Failed: {str(e)}")
-            logger.error(f"LLM Raw Output: {response}")
             return {
                 "patient_name": "Unknown",
-                "report_date": "Not Available",
+                "report_date": curr_date_str,
                 "lab_results": []
             }
 
-        # -------- Date Fallback Logic --------
-        if (
-            not data.get("report_date") or
-            len(str(data.get("report_date"))) < 8
-        ):
-            if file_path:
-                fallback_date = get_file_date(file_path)
-                if fallback_date:
-                    data["report_date"] = fallback_date
-                    data["date_source"] = "file_metadata"
-                else:
-                    data["report_date"] = "Not Available"
-                    data["date_source"] = "unknown"
-        else:
-            data["date_source"] = "report"
-
+        # -------- APPLY NORMALIZATION HERE --------
+        # This fixes the 'Sorting Error' in TrendAgent
+        raw_date = data.get("report_date")
+        data["report_date"] = normalize_date(raw_date)
+        
+        logger.info(f"Final Normalized Date: {data['report_date']}")
         logger.info("LLM Extraction Successful")
 
         return data
@@ -94,7 +101,7 @@ def llm_doctor_extractor(report_text, file_path=None):
         logger.error(f"LLM Extractor Error: {str(e)}")
         return {
             "patient_name": "Unknown",
-            "report_date": "Not Available",
+            "report_date": datetime.now().strftime("%Y-%m-%d"),
             "lab_results": []
         }
 

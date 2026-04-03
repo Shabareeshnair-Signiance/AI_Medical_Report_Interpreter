@@ -1,9 +1,10 @@
-Extract structured medical information from the report.
+Extract structured medical information from the report text provided below.
 
 Return ONLY valid JSON in this format:
 {{
   "patient_name": "",
-  "report_date": "",
+  "report_date": "YYYY-MM-DD",
+  "pid": "",
   "lab_results": [
     {{
       "test": "",
@@ -14,14 +15,14 @@ Return ONLY valid JSON in this format:
   ]
 }}
 
-Rules:
-- Identify correct patient name (ignore headers, footers, lab names)
-- Extract report date correctly
-- Extract all lab test values
-- Understand multi-line formats
-- Ignore irrelevant text like addresses, phone numbers, disclaimers
-- If range is missing, return "N/A"
-- Determine status based on value vs range
+CRITICAL EXTRACTION RULES:
+1. REPORT DATE: This is MANDATORY. Search for "Date of Collection", "Registered", "Reported", or "Drawn". 
+   - If the date is in any format (e.g., 03/Apr/2026, 03-04-26, April 3 2026), you MUST convert it strictly to YYYY-MM-DD.
+   - If NO date is found in the text, use the current date: {current_date}.
+2. PATIENT IDENTITY: Extract the Patient Name and the Patient ID (PID/UHID/Lab No).
+3. LAB RESULTS: Extract every test name and its numerical value. 
+4. STATUS: Compare the value to the reference range. 
+5. CLEANING: Ignore headers, footers, and lab addresses.
 
-Medical Report:
+Medical Report Text:
 {report_text}

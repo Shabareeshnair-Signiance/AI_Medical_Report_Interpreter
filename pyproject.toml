@@ -21,6 +21,7 @@ dependencies = [
     "paddleocr>=3.4.0",
     "pdf2image>=1.17.0",
     "pdfplumber>=0.11.9",
+    "python-dateutil>=2.9.0.post0",
     "python-dotenv>=1.2.2",
     "python-levenshtein>=0.27.3",
     "sentence-transformers>=5.2.3",

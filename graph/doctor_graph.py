@@ -3,7 +3,7 @@ import hashlib
 from typing import TypedDict, List, Optional
 from langgraph.graph import StateGraph, END
 
-# Importing the existing tools
+# Importing your existing tools
 from processing.pdf_reader import read_pdf
 from processing.llm_doctor_extractor import llm_doctor_extractor
 from doctors.trend_agent import TrendAgent
@@ -16,7 +16,7 @@ from storage.medical_history_db import (
 )
 from logger_config import logger
 
-# Defining the State
+# 1. Defining the State
 class AgentState(TypedDict):
     file_path: str
     file_hash: str
@@ -27,13 +27,13 @@ class AgentState(TypedDict):
     clinical_suggestion: str
     status: str
 
-# --- Define the Nodes ---
+# --- 2. Define the Nodes ---
 
 def extract_node(state: AgentState):
     logger.info(f"NODE: Extracting PDF")
     path = state["file_path"]
 
-    # Generating hash
+    # Generate hash to check if we've seen this file
     sha256 = hashlib.sha256()
     with open(path, "rb") as f:
         while chunk := f.read(8192): 
@@ -43,21 +43,26 @@ def extract_node(state: AgentState):
     # Checking Cache first
     existing = get_existing_analysis(file_hash)
 
-    # If valid cache exists, skip everything
+    # FIX: If valid cache exists, retrieve REAL patient data from the DB tuple
+    # Tuple mapping: (insight, suggestion, name, pid, date)
     if existing and existing[1] and existing[1] != "None":
-        logger.info(" Valid analysis found in DB. Skipping AI.")
+        logger.info(f"Valid analysis found for {existing[2]}. Skipping AI.")
         return {
             "file_hash": file_hash, 
             "status": "CACHED", 
             "trend_insight": existing[0] if existing[0] else "Initial report.", 
             "clinical_suggestion": existing[1],
-            "current_report": {"patient_name": "Stored Patient"}
+            "current_report": {
+                "patient_name": existing[2],
+                "pid": existing[3],
+                "report_date": existing[4]
+            }
         }
     
-    # If no valid cache, run the full extraction
-    logger.info("No valid cache found. Running AI Agents...")
+    # If no valid cache, run the full extraction automatically
+    logger.info("No valid cache found. Running AI Extraction Pipeline...")
     text = read_pdf(path)
-    report_data = llm_doctor_extractor(text, file_path=path)
+    report_data = llm_doctor_extractor(text) # Automatically extracts name, pid, results
     
     return {
         "current_report": report_data, 
@@ -66,7 +71,7 @@ def extract_node(state: AgentState):
     }
 
 def trend_node(state: AgentState):
-    # If cached, just pass the state forward
+    # If cached, we already have the insight, so just pass through
     if state.get("status") == "CACHED": 
         return state
         
@@ -75,14 +80,13 @@ def trend_node(state: AgentState):
     pid = report.get("pid") or report.get("lab_no")
     name = report.get("patient_name")
 
+    # Fetch history based on the automatically extracted data
     history = get_history_for_patient(pid=pid, name=name)
+    
     agent = TrendAgent()
     result = agent.analyze({"current_report": report, "history": history})
 
-    # Ensure we return a string even if no history exists
-    insight = result.get("trend_insight")
-    if not insight or insight.strip() == "":
-        insight = "No previous history found for comparison."
+    insight = result.get("trend_insight", "No previous history found for comparison.")
 
     return {
         "trends": result.get("trends", []),
@@ -91,43 +95,41 @@ def trend_node(state: AgentState):
     }
 
 def symlink_node(state: AgentState):
+    # If cached, we already have the suggestion, so just pass through
     if state.get("status") == "CACHED": 
         return state
         
     logger.info(f"NODE: Symlink Diagnostics")
     agent = SymlinkAgent()
     
-    # Symlink needs the report and the trends from previous nodes
     result = agent.analyze({
         "current_report": state["current_report"],
         "trends": state.get("trends", [])
     })
 
-    return {"clinical_suggestion": result.get("clinical_diagnosis_suggestion")}
+    return {"clinical_suggestion": result.get("clinical_diagnosis_suggestion", "Consult specialist.")}
 
 def save_node(state: AgentState):
-    # FIXED: Check for uppercase "NEW"
+    # Only save if this is a fresh analysis
     if state.get("status") == "NEW":
-        logger.info(f"NODE: Saving To Database")
+        logger.info(f"NODE: Saving New Results to Database")
         
-        # Prepare the data dictionary exactly as the DB expects
         combined_analysis = {
             "trend_insight": state.get("trend_insight", "Initial report."),
-            "clinical_diagnosis_suggestion": state.get("clinical_suggestion", "No diagnosis generated."),
+            "clinical_suggestion": state.get("clinical_suggestion", "No diagnosis generated."),
             "trends": state.get("trends", [])
         }
         
-        # Call the DB tool
         save_patient_trend_data(
             state["file_hash"], 
             state["current_report"], 
             combined_analysis
         )
-        logger.info(" Successfully saved to Database.")
+        logger.info("Successfully saved to Database.")
         
     return state
 
-# --- Building the Graph ---
+# --- 3. Building the Graph ---
 workflow = StateGraph(AgentState)
 
 workflow.add_node("extractor", extract_node)
@@ -143,27 +145,30 @@ workflow.add_edge("db_saver", END)
 
 app = workflow.compile()
 
-# --- Testing the Graph ---
+# --- 4. Testing Code (Keep as requested) ---
 if __name__ == "__main__":
     init_history_database()
 
-    # Change this path to test new files!
+    # Replace with a real PDF path in your project to test
     input_state = {
-        #"file_path": "sample_data/Glucose_report.pdf"
-        "file_path": "sample_data/Sample Report.pdf"
+        "file_path": "data/uploads/platelet_report.pdf" 
     }
 
     logger.info("Starting LangGraph Medical Workflow")
-    final_output = app.invoke(input_state)
+    try:
+        final_output = app.invoke(input_state)
 
-    print("\n" + "=".center(60, "="))
-    print(f"FINAL REPORT FOR: {final_output.get('current_report', {}).get('patient_name', 'Patient')}")
-    print("=".center(60, "="))
-    
-    # Use .get() to prevent crashes if a key is missing
-    suggestion = final_output.get('clinical_suggestion', 'No suggestion available.')
-    insight = final_output.get('trend_insight', 'No trend insight available.')
+        print("\n" + "=".center(60, "="))
+        print(f"FINAL REPORT FOR: {final_output.get('current_report', {}).get('patient_name', 'Unknown')}")
+        print(f"PATIENT ID: {final_output.get('current_report', {}).get('pid', 'N/A')}")
+        print("=".center(60, "="))
+        
+        suggestion = final_output.get('clinical_suggestion', 'No suggestion available.')
+        insight = final_output.get('trend_insight', 'No trend insight available.')
 
-    print(f"\n CLINICAL SUGGESTION:\n{suggestion}")
-    print(f"\n TREND ANALYSIS:\n{insight}")
-    print("=".center(60, "="))
+        print(f"\n[CLINICAL SUGGESTION]\n{suggestion}")
+        print(f"\n[TREND ANALYSIS]\n{insight}")
+        print("=".center(60, "="))
+        
+    except Exception as e:
+        logger.error(f"Test Execution Failed: {e}")

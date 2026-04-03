@@ -5,6 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Doctor Clinical Dashboard</title>
     <link rel="stylesheet" href="/design/doctor.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Essential styles for the requested Trend Analysis layout */
+        .trend-grid-layout {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr;
+            gap: 20px;
+            margin-top: 15px;
+        }
+        .trend-left-panel {
+            border-right: 1px solid #eee;
+            padding-right: 15px;
+        }
+        .trend-right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .summary-box {
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -113,10 +138,47 @@
                         <h2>Trend Analysis</h2>
                     </div>
                     <div class="card-body">
-                        <p>{{ trend_insight }}</p>
+                        <div class="trend-grid-layout">
+                            <div class="trend-left-panel">
+                                <table class="trend-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Biomarker</th>
+                                            <th>Result</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="trendTableBody">
+                                        {% if trend_data %}
+                                            {% for row in trend_data %}
+                                            <tr>
+                                                <td>{{ row.parameter }}</td>
+                                                <td><strong>{{ row.value }}</strong></td>
+                                                <td><span class="status-pill {{ row.status_class }}">{{ row.status }}</span></td>
+                                            </tr>
+                                            {% endfor %}
+                                        {% else %}
+                                            <tr>
+                                                <td colspan="3" style="text-align:center;">No data found.</td>
+                                            </tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="trend-right-panel">
+                                <div class="chart-wrapper">
+                                    <canvas id="trendChart" height="180"></canvas>
+                                </div>
+
+                                <div class="summary-box">
+                                    <h4>Summary</h4>
+                                    <p>{{ trend_insight }}</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </section>
-
                 <section class="card symlink-card">
                     <div class="card-header">
                         <span class="icon">🔍</span>
@@ -152,7 +214,7 @@
                                     {% endfor %}
                                 {% else %}
                                     <tr>
-                                        <td colspan="3">No previous history available for this timeline.</td>
+                                        <td colspan="3">No previous history available.</td>
                                     </tr>
                                 {% endif %}
                             </tbody>

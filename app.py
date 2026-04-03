@@ -15,7 +15,7 @@ from graph.agent_graph import build_medical_graph
 from storage.database import init_database, save_report, generate_file_hash_from_bytes
 
 from graph.doctor_graph import app as doctor_app
-from storage.medical_history_db import get_history_for_patient, init_history_database
+from storage.medical_history_db import get_history_for_patient, init_history_database, calculate_file_hash
 
 from logger_config import logger
 
@@ -311,25 +311,34 @@ def doctor_dashboard():
             if not file:
                 return "No file uploaded"
 
-            # Save the file temporarily
+            # 1. Save the file
             file_path = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
             file.save(file_path)
 
-            # RUN YOUR NEW DOCTOR LANGGRAPH
-            input_state = {"file_path": file_path}
+            # 2. NEW: Calculate the unique Hash for this file
+            file_hash = calculate_file_hash(file_path)
+            logger.info(f"Processing file with hash: {file_hash}")
+
+            # 3. RUN DOCTOR LANGGRAPH 
+            # We pass the file_hash into the state so the agents can use it
+            input_state = {
+                "file_path": file_path, 
+                "file_hash": file_hash
+            }
+            
             logger.info("Running Doctor's Clinical Workflow")
             final_output = doctor_app.invoke(input_state)
 
-            # Get patient info to show history in the UI
+            # 4. Get patient info for the UI
             report = final_output.get("current_report", {})
             pid = report.get("pid") or report.get("lab_no")
             name = report.get("patient_name")
             
-            # Fetch history to show the doctor a table of past results
+            # 5. Fetch history for the doctor's table
             past_history = get_history_for_patient(pid=pid, name=name)
 
             return render_template(
-                "doctor.html",  # You will create this new HTML file
+                "doctor.html",
                 report=report,
                 clinical_suggestion=final_output.get("clinical_suggestion"),
                 trend_insight=final_output.get("trend_insight"),

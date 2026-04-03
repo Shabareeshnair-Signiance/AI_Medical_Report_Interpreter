@@ -20,79 +20,121 @@ header {
     padding-bottom: 15px;
 }
 
-header h1 {
-    color: #0056b3;
-    margin: 0;
+header h1 { color: #0056b3; margin: 0; }
+header p { color: #666; margin-top: 8px; font-size: 1.1rem; }
+
+/* --- UNIQUE VALIDATION DETAILS SECTION --- */
+.validation-container {
+    margin-bottom: 30px;
 }
 
-header p {
-    color: #666;
-    margin-top: 8px;
-    font-size: 1.1rem;
+.validation-card {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    overflow: hidden;
+    border: 1px solid #e0e6ed;
 }
 
-/* --- VALIDATION & VERIFICATION SECTION --- */
-.validation-bar {
+.val-header {
+    background: #fafbfc;
+    padding: 20px 30px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #ffffff;
-    padding: 15px 25px;
-    margin-bottom: 25px;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    transition: all 0.3s ease;
+    border-bottom: 1px solid #eee;
 }
 
-/* Status-specific Themes */
-.status-new { border-left: 6px solid #007bff; background: #f0f7ff; }
-.status-history { border-left: 6px solid #28a745; background: #f6fff6; }
-.status-duplicate { border-left: 6px solid #ff9800; background: #fffaf0; }
-.status-invalid { border-left: 6px solid #dc3545; background: #fff5f5; }
-
-.patient-info {
-    font-size: 1rem;
-    color: #444;
-}
-
-.meta-text {
-    font-size: 0.95rem;
-    color: #555;
-    margin-bottom: 4px;
-}
-
-.meta-text strong {
-    color: #0056b3;
-}
-
-.error-message {
-    color: #dc3545;
+.val-header h2 {
+    margin: 0;
+    font-size: 1.8rem;
     font-weight: 700;
-    font-size: 1rem;
+    color: #1a1a1a;
 }
 
-/* Status Badges */
-.status-badge {
-    padding: 8px 16px;
-    border-radius: 25px;
-    font-size: 0.75rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    display: inline-flex;
+.val-badge-large {
+    font-size: 1.1rem;
+    font-weight: 700;
+    display: flex;
     align-items: center;
-    gap: 8px;
-    letter-spacing: 0.5px;
+    gap: 10px;
 }
 
-.badge-new { background: #cce5ff; color: #004085; animation: pulse-blue 2s infinite; }
-.badge-history { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-.badge-duplicate { background: #ffeeba; color: #856404; border: 1px solid #ffeeba; }
-.badge-invalid { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+.v-status {
+    background: #28a745;
+    color: white;
+    padding: 5px 15px;
+    border-radius: 6px;
+    text-transform: uppercase;
+}
 
-@keyframes pulse-blue {
-    0% { box-shadow: 0 0 0 0 rgba(13, 71, 161, 0.4); }
-    70% { box-shadow: 0 0 0 10px rgba(13, 71, 161, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(13, 71, 161, 0); }
+.val-invalid .v-status { background: #dc3545; }
+.val-invalid { border-top: 5px solid #dc3545; }
+
+.val-content {
+    padding: 30px;
+}
+
+.val-info-group {
+    margin-bottom: 20px;
+}
+
+.val-info-group label {
+    display: block;
+    font-weight: 800;
+    font-size: 1.2rem;
+    margin-bottom: 8px;
+    color: #000;
+}
+
+.val-msg {
+    font-size: 1.1rem;
+    color: #444;
+    margin: 0;
+}
+
+.type-pill {
+    background: #007bff;
+    color: white;
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.val-divider {
+    height: 1px;
+    background: #eee;
+    margin: 25px 0;
+}
+
+.val-patient-details h3 {
+    font-size: 1.4rem;
+    margin-bottom: 20px;
+}
+
+.details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.detail-item {
+    font-size: 1.2rem;
+}
+
+.detail-item .label {
+    font-weight: 800;
+    color: #000;
+    margin-right: 10px;
+}
+
+.cache-info {
+    margin-top: 25px;
+    padding: 12px;
+    background: #fff3e0;
+    border-radius: 8px;
+    color: #856404;
 }
 
 /* --- Upload Section --- */
@@ -116,8 +158,6 @@ input[type="file"] {
     padding: 10px;
     border: 2px dashed #007bff;
     border-radius: 8px;
-    background: #fdfdfd;
-    cursor: pointer;
 }
 
 .btn-primary {
@@ -129,26 +169,10 @@ input[type="file"] {
     cursor: pointer;
     font-size: 16px;
     font-weight: 600;
-    transition: all 0.3s ease;
 }
 
-.btn-primary:hover:not(:disabled) {
-    background-color: #004494;
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-}
-
-.btn-primary:disabled {
-    background-color: #6c757d;
-    cursor: not-allowed;
-}
-
-/* Results Cards */
-.results-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 25px;
-}
+/* --- Results Grid & Cards --- */
+.results-grid { display: flex; flex-direction: column; gap: 25px; }
 
 .card {
     background: white;
@@ -163,53 +187,22 @@ input[type="file"] {
     padding: 18px 25px;
     display: flex;
     align-items: center;
-    border-bottom: 1px solid #eef2f7;
 }
 
-.card-header h2 {
-    margin: 0;
-    font-size: 1.3rem;
-    color: #003366;
-}
-
+.card-header h2 { margin: 0; font-size: 1.3rem; color: #003366; }
 .icon { font-size: 1.6rem; margin-right: 15px; }
+.card-body { padding: 25px; line-height: 1.8; color: #444; }
 
-.card-body {
-    padding: 25px;
-    line-height: 1.8;
-    font-size: 15px;
-    color: #444;
-}
-
-/* Symlink Card Custom Color */
 .symlink-card { border-left-color: #28a745; }
 .symlink-card .card-header { background-color: #f6fff9; }
 
-/* Table Styling */
-table {
-    width: 100%;
-    border-collapse: collapse;
-}
+/* Table */
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 16px; border-bottom: 1px solid #f0f0f0; }
+th { background-color: #f8f9fa; color: #666; font-size: 12px; text-transform: uppercase; }
+tr:hover { background-color: #f0f7ff; }
 
-th, td {
-    text-align: left;
-    padding: 16px;
-    border-bottom: 1px solid #f0f0f0;
-}
-
-th {
-    background-color: #f8f9fa;
-    color: #666;
-    text-transform: uppercase;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 1px;
-}
-
-tr:hover { background-color: #f0f7ff; transition: 0.2s; }
-
-/* Responsive Logic */
 @media (max-width: 768px) {
     .upload-container { flex-direction: column; }
-    .validation-bar { flex-direction: column; text-align: center; gap: 15px; }
+    .val-header { flex-direction: column; align-items: flex-start; gap: 10px; }
 }

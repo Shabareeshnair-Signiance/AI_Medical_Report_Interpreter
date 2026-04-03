@@ -17,7 +17,7 @@ header {
     text-align: center;
     margin-bottom: 30px;
     border-bottom: 2px solid #0056b3;
-    padding-bottom: 10px;
+    padding-bottom: 15px;
 }
 
 header h1 {
@@ -25,36 +25,111 @@ header h1 {
     margin: 0;
 }
 
-/* Upload Section */
+header p {
+    color: #666;
+    margin-top: 8px;
+    font-size: 1.1rem;
+}
+
+/* --- NEW: Validation & Verification Section --- */
+.validation-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #ffffff;
+    border-left: 5px solid #007bff;
+    padding: 15px 25px;
+    margin-bottom: 25px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.patient-info {
+    font-size: 1rem;
+    color: #444;
+}
+
+.patient-info strong {
+    color: #0056b3;
+}
+
+/* Status Badges */
+.status-badge {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.badge-new { 
+    background: #e3f2fd; 
+    color: #0d47a1; 
+    animation: pulse-blue 2s infinite;
+}
+
+.badge-history { 
+    background: #e8f5e9; 
+    color: #1b5e20; 
+    border: 1px solid #c8e6c9;
+}
+
+.badge-duplicate { 
+    background: #fff3e0; 
+    color: #e65100; 
+    border: 1px solid #ffe0b2;
+}
+
+@keyframes pulse-blue {
+    0% { box-shadow: 0 0 0 0 rgba(13, 71, 161, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(13, 71, 161, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(13, 71, 161, 0); }
+}
+
+/* --- Upload Section --- */
 .upload-section {
     background: white;
-    padding: 20px;
+    padding: 25px;
     border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
     text-align: center;
     margin-bottom: 30px;
+}
+
+input[type="file"] {
+    padding: 10px;
+    border: 1px dashed #bbb;
+    border-radius: 5px;
+    margin-right: 10px;
+    background: #fafafa;
 }
 
 .btn-primary {
     background-color: #0056b3;
     color: white;
     border: none;
-    padding: 10px 20px;
+    padding: 12px 24px;
     border-radius: 5px;
     cursor: pointer;
     font-size: 16px;
-    transition: background 0.3s;
+    font-weight: 600;
+    transition: all 0.3s ease;
 }
 
 .btn-primary:hover {
     background-color: #004494;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
 /* Results Cards */
 .results-grid {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 25px;
 }
 
 .card {
@@ -62,7 +137,7 @@ header h1 {
     border-radius: 8px;
     box-shadow: 0 2px 15px rgba(0,0,0,0.05);
     overflow: hidden;
-    border-left: 5px solid #0056b3; /* Medical Blue Accent */
+    border-left: 5px solid #0056b3; 
 }
 
 .card-header {
@@ -75,8 +150,9 @@ header h1 {
 
 .card-header h2 {
     margin: 0;
-    font-size: 1.2rem;
+    font-size: 1.25rem;
     color: #003366;
+    font-weight: 600;
 }
 
 .icon {
@@ -85,14 +161,19 @@ header h1 {
 }
 
 .card-body {
-    padding: 20px;
-    line-height: 1.6;
+    padding: 25px;
+    line-height: 1.7;
     font-size: 15px;
+    color: #444;
 }
 
-/* Special styling for Symlink (The Detective) */
+/* Special styling for Clinical Detective Card */
 .symlink-card {
-    border-left-color: #28a745; /* Green for Diagnostics */
+    border-left-color: #28a745; 
+}
+
+.symlink-card .card-header {
+    background-color: #f0fff4;
 }
 
 /* Table Styling */
@@ -104,25 +185,39 @@ table {
 
 th, td {
     text-align: left;
-    padding: 12px;
+    padding: 14px;
     border-bottom: 1px solid #eee;
 }
 
 th {
     background-color: #f8f9fa;
-    color: #666;
+    color: #555;
     text-transform: uppercase;
-    font-size: 12px;
-    letter-spacing: 1px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
 }
 
 tr:hover {
-    background-color: #fdfdfd;
+    background-color: #f9fcff;
 }
 
 /* Responsive Logic */
 @media (max-width: 768px) {
     .container {
         padding: 10px;
+    }
+    .validation-bar {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+    input[type="file"] {
+        margin-right: 0;
+        margin-bottom: 10px;
+        width: 100%;
+    }
+    .btn-primary {
+        width: 100%;
     }
 }

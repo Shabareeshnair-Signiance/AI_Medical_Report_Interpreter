@@ -5,12 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Doctor Clinical Dashboard</title>
     <link rel="stylesheet" href="/design/doctor.css">
+    <style>
+        /* Quick Inline Styles for the New Validation Bar */
+        .validation-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f0f7ff;
+            border-left: 5px solid #007bff;
+            padding: 15px 25px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .status-badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .badge-new { background: #e3f2fd; color: #0d47a1; }
+        .badge-history { background: #e8f5e9; color: #1b5e20; }
+        .badge-duplicate { background: #fff3e0; color: #e65100; }
+    </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>🩺 Clinical Diagnostic Assistant</h1>
-            <p>Patient Name: <strong>{{ report.patient_name if report else 'Select a Report' }}</strong></p>
+            <p>Active Patient: <strong>{{ validation.patient_name if validation else (report.patient_name if report else 'No Report Loaded') }}</strong></p>
         </header>
 
         <main>
@@ -20,6 +44,25 @@
                     <button type="submit" class="btn-primary">Analyze Report</button>
                 </form>
             </section>
+
+            {% if validation %}
+            <div class="validation-bar">
+                <div class="patient-info">
+                    <span><strong>ID:</strong> {{ validation.pid or 'N/A' }}</span> | 
+                    <span><strong>Date:</strong> {{ validation.report_date or 'Not Found' }}</span>
+                </div>
+                
+                <div class="status-info">
+                    {% if validation.status == 'HISTORY_FOUND' %}
+                        <span class="status-badge badge-history">📊 History Found: {{ validation.history_count }} records</span>
+                    {% elif validation.status == 'DUPLICATE' %}
+                        <span class="status-badge badge-duplicate">♻️ Loaded from Cache</span>
+                    {% elif validation.status == 'NEW_PATIENT' %}
+                        <span class="status-badge badge-new">🆕 New Patient Record</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
 
             {% if trend_insight or clinical_suggestion %}
             <div class="results-grid">
@@ -69,7 +112,7 @@
                                     {% endfor %}
                                 {% else %}
                                     <tr>
-                                        <td colspan="3">No previous history found in database.</td>
+                                        <td colspan="3">No previous history found for this patient ID.</td>
                                     </tr>
                                 {% endif %}
                             </tbody>

@@ -16,8 +16,11 @@ from storage.database import init_database, save_report, generate_file_hash_from
 
 from graph.doctor_graph import app as doctor_app
 from storage.medical_history_db import get_history_for_patient, init_history_database, calculate_file_hash
+from agents.doctor_validation_agent import DoctorValidationAgent
 
 from logger_config import logger
+
+doc_validator = DoctorValidationAgent()
 
 # For Dropdown purpose
 def parse_guidance(text):
@@ -311,39 +314,57 @@ def doctor_dashboard():
             if not file:
                 return "No file uploaded"
 
-            # 1. Save the file
+            # 1. Save the file temporarily
             file_path = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
             file.save(file_path)
 
-            # 2. NEW: Calculate the unique Hash for this file
-            file_hash = calculate_file_hash(file_path)
-            logger.info(f"Processing file with hash: {file_hash}")
+            # 2. PHASE 1: VALIDATION (The New Step)
+            # This uses your new Agent to check Hash, Identity, and History
+            validation = doc_validator.validate_for_doctor(file_path)
+            
+            if not validation["is_valid"]:
+                return render_template("doctor.html", 
+                                       error="Could not identify patient in this report.",
+                                       validation=validation)
 
-            # 3. RUN DOCTOR LANGGRAPH 
-            # We pass the file_hash into the state so the agents can use it
+            # 3. PHASE 2: DUPLICATE HANDLING (Instant Response)
+            if validation["status"] == "DUPLICATE":
+                logger.info("Found cached analysis. Skipping LangGraph.")
+                existing_analysis = validation["existing_analysis"]
+                
+                # Fetch history for the table even if it's a duplicate
+                past_history = get_history_for_patient(pid=validation["pid"], name=validation["patient_name"])
+                
+                return render_template(
+                    "doctor.html",
+                    validation=validation,
+                    trend_insight=existing_analysis[0],      # llm_insight from DB
+                    clinical_suggestion=existing_analysis[1], # clinical_suggestion from DB
+                    history=past_history,
+                    status="CACHED"
+                )
+
+            # 4. PHASE 3: NEW PROCESSING (Run LangGraph)
             input_state = {
                 "file_path": file_path, 
-                "file_hash": file_hash
+                "file_hash": validation["file_hash"]
             }
             
-            logger.info("Running Doctor's Clinical Workflow")
+            logger.info("Running Doctor's Clinical Workflow for new/updated report")
             final_output = doctor_app.invoke(input_state)
 
-            # 4. Get patient info for the UI
-            report = final_output.get("current_report", {})
-            pid = report.get("pid") or report.get("lab_no")
-            name = report.get("patient_name")
-            
-            # 5. Fetch history for the doctor's table
-            past_history = get_history_for_patient(pid=pid, name=name)
+            # Fetch fresh history for the UI
+            past_history = get_history_for_patient(pid=validation["pid"], name=validation["patient_name"])
 
             return render_template(
                 "doctor.html",
-                report=report,
+                validation=validation, # Send the name/ID/date we found
+                report=final_output.get("current_report", {}),
                 clinical_suggestion=final_output.get("clinical_suggestion"),
                 trend_insight=final_output.get("trend_insight"),
                 trends=final_output.get("trends", []),
-                history=past_history
+                history=past_history,
+                status="PROCESSED"
             )
 
         return render_template("doctor.html")

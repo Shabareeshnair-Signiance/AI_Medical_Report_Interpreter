@@ -27,14 +27,15 @@ class DoctorValidationAgent:
         # 2. Instant Check: Is this exact file already in the DB?
         existing = get_existing_analysis(file_hash)
         if existing:
-            logger.info("Duplicate file detected. Loading from cache.")
+            logger.info("Duplicate file detected. Loading real data from cache.")
             return {
                 "status": "DUPLICATE",
                 "is_valid": True,
                 "file_hash": file_hash,
-                "existing_analysis": existing,
-                "patient_name": "Cached Patient",
-                "pid": "Cached ID",
+                "existing_analysis": existing, 
+                "patient_name": existing[2], # Get actual name from DB record
+                "pid": existing[3],          # Get actual PID from DB record
+                "report_date": existing[4],  # Get actual Date from DB record
                 "history_count": 0
             }
 

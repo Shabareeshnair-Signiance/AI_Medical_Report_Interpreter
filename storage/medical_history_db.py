@@ -7,26 +7,49 @@ from logger_config import logger
 DB_PATH = os.path.join(os.getcwd(), "data", "medical_history.db")
 
 
-def generate_internal_uid(name, age=None, dob=None, report_date_str=None):
-    """Creating a permamnet UID based on Name and calculated Birth Year."""
-    try:
-        clean_name = name.strip().lower().replace(" ", "")
-        birth_year = "0000" # Default if nothing is found
+def _get_fuzzy_clean_name(name):
+    """Tier 3: Normalizes names by removing middle initials and extra dots."""
+    import re
+    if not name: return "unknown"
+    # Convert to lowercase and remove dots (e.g., 'M.' -> 'M')
+    name = name.lower().replace(".", "").strip()
+    # Remove single character middle initials (e.g., 'yash m patel' -> 'yash patel')
+    # This regex looks for a single letter surrounded by spaces
+    name = re.sub(r'\s[a-z]\s', ' ', name)
+    # Remove all spaces for the final hash key
+    return name.replace(" ", "")
 
+
+def generate_internal_uid(name, age=None, dob=None, report_date_str=None):
+    """Hybrid UID Generator: Tier 1 (Full) -> Tier 2 (Partial) -> Tier 3 (Fuzzy)"""
+    try:
+        # TIER 3: Use the fuzzy cleaner to handle 'Yash M. Patel' vs 'Yash Patel'
+        clean_name = _get_fuzzy_clean_name(name)
+        
+        birth_year = "0000" 
+
+        # TIER 2: Match based on Birth Year if PID/DOB is messy
         if dob and len(str(dob)) >= 4:
-            # extracting year from DOB string (e.g., "1998-05-20" -> "1998")
             birth_year = str(dob)[:4]
         elif age and report_date_str:
-            #extracting year from Report Date (e.g., "2026-04-06" -> 2026)
-            report_year = int(str(report_date_str)[:4])
-            birth_year = str(report_year - int(age))
+            try:
+                report_year = int(str(report_date_str)[:4])
+                # Ensure age is numeric before subtraction
+                clean_age = int(re.search(r'\d+', str(age)).group())
+                birth_year = str(report_year - clean_age)
+            except:
+                pass
 
+        # TIER 1: The Final Identity String
         identity_string = f"{clean_name}-{birth_year}"
-        return hashlib.md5(identity_string.encode()).hexdigest()
+        uid = hashlib.md5(identity_string.encode()).hexdigest()
+        
+        logger.info(f"Hybrid UID Generated: {uid} for {name} (Birth Year: {birth_year})")
+        return uid
     except Exception as e:
         logger.error(f"UID Generation failed: {e}")
-        return name.lower().strip()  # falback to just name
-
+        return name.lower().strip().replace(" ", "")
+    
 def calculate_file_hash(file_path):
     """Generates a SHA-256 hash to uniquely identify the report file."""
     sha256_hash = hashlib.sha256()
@@ -82,10 +105,15 @@ def get_history_for_patient(pid=None, name=None):
         query = """
             SELECT medical_data, report_date, patient_id, patient_name, llm_insight
             FROM patient_reports 
-            WHERE patient_id = ? OR LOWER(patient_name) = ?
+            WHERE patient_id = ? 
+               OR LOWER(patient_name) = ? 
+               OR patient_id = (SELECT patient_id FROM patient_reports WHERE LOWER(patient_name) LIKE ? LIMIT 1)
             ORDER BY report_date ASC
         """
-        cursor.execute(query, (str(pid), clean_name))
+
+        # Using a wildcard match for the fuzzy name
+        fuzzy_search = f"%{clean_name}%"
+        cursor.execute(query, (str(pid), clean_name, fuzzy_search))
 
         rows = cursor.fetchall()
         conn.close()

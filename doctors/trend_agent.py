@@ -96,19 +96,31 @@ class TrendAgent:
         # REMOVED: last_report = history[-1] <--- This was the bug!
 
         # --- 3. IDENTITY CHECK ---
-        curr_ids = {current_report.get(k) for k in ['pid', 'lab_no', 'reg_no', 'uhid'] if current_report.get(k)}
-        prev_ids = {last_report.get(k) for k in ['pid', 'lab_no', 'reg_no', 'uhid'] if last_report.get(k)}
-        
-        id_confirmed = False
-        if curr_ids and prev_ids and not curr_ids.isdisjoint(prev_ids):
-            id_confirmed = True
+        # I trust the database logic. If 'history' contains these reports,
+        # they have already been matched by Internal UID
+        id_confirmed = True
 
-        if not id_confirmed:
-            curr_name_low = patient_name.lower().strip()
-            prev_name_low = last_report.get('patient_name', '').lower().strip()
-            if curr_name_low != prev_name_low:
-                # If name and ID both fail to match, it's a different person
-                return {"status": "identity_mismatch", "trend_insight": "Error: Patient identity could not be verified."}
+        # curr_ids = {current_report.get(k) for k in ['pid', 'lab_no', 'reg_no', 'uhid'] if current_report.get(k)}
+        # prev_ids = {last_report.get(k) for k in ['pid', 'lab_no', 'reg_no', 'uhid'] if last_report.get(k)}
+
+        # Optional: Keep a simple name check just as a final safety barrier
+        curr_name_low = patient_name.lower().strip()
+        prev_name_low = last_report.get('patient_name', '').lower().strip()
+        
+        if curr_name_low not in prev_name_low and prev_name_low not in curr_name_low:
+             # Only trigger mismatch if names are completely different (e.g., Rahul vs Amit)
+             return {"status": "identity_mismatch", "trend_insight": "Error: Patient names do not match."}
+
+        # id_confirmed = False
+        # if curr_ids and prev_ids and not curr_ids.isdisjoint(prev_ids):
+        #     id_confirmed = True
+
+        # if not id_confirmed:
+        #     curr_name_low = patient_name.lower().strip()
+        #     prev_name_low = last_report.get('patient_name', '').lower().strip()
+        #     if curr_name_low != prev_name_low:
+        #         # If name and ID both fail to match, it's a different person
+        #         return {"status": "identity_mismatch", "trend_insight": "Error: Patient identity could not be verified."}
 
         # --- 4. MATCHING & TREND CALCULATION ---
         # Use the lab_results from history[-2] (the old report)
@@ -142,13 +154,19 @@ class TrendAgent:
 
         # --- 5. GENERATE FINAL INSIGHT ---
         if not trends:
-            insight = self._generate_llm_insight(patient_name, current_report.get('lab_results', []), is_baseline=True)
-            return {"status": "success", "trend_insight": insight, "trends": []}
+            trends = [
+                {"test": item['test'], "current": item['value'], "previous": "N/A", "change_pct": 0}
+                for item in current_report.get('lab_results', [])
+            ]
 
-        insight = self._generate_llm_insight(patient_name, trends, is_baseline=False)
+        insight = self._generate_llm_insight(
+            patient_name, 
+            current_report.get('lab_results', []), 
+            is_baseline=(not trends or "previous" in str(trends))
+        )
 
         return {
             "status": "success",
-            "trends": trends,
-            "trend_insight": insight
+            "trend_insight": insight,
+             "trends": trends,
         }

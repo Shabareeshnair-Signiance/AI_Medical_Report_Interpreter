@@ -330,22 +330,26 @@ def doctor_dashboard():
             # 3. PHASE 2: DUPLICATE HANDLING (Instant Response)
             if validation["status"] == "DUPLICATE":
                 logger.info(f"Loading data for {validation['patient_name']}")
-                existing_data = validation["existing_analysis"]
+                existing_data = validation.get("existing_analysis", [])
+
+                # checking if existing_data has enough elements before accessing 0 and 1
+                t_insight = existing_data[0] if len(existing_data) > 0 else "No trend insight available."
+                c_suggestion = existing_data[1] if len(existing_data) > 1 else "No clinical suggestion available."
                 
                 # Re-fetch history using the REAL name and PID found in the cache
                 past_history = get_history_for_patient(
-                    pid=validation["pid"], 
-                    name=validation["patient_name"]
+                    pid=validation.get("pid", "N/A"),
+                    name=validation.get("patient_name", "Unknown")
                 )
                 
                 return render_template(
                     "doctor.html",
                     validation=validation,
                     # Ensure these indices match your DB 'SELECT' order
-                    trend_insight=existing_data[0],      
-                    clinical_suggestion=existing_data[1], 
+                    trend_insight=t_insight,
+                    clinical_suggestion=c_suggestion, 
                     history=past_history,
-                    report={"patient_name": validation["patient_name"]}, # Fixes the header
+                    report={"patient_name": validation.get("patient_name", "Patient")}, # Fixes the header
                     status="CACHED"
                 )
 
@@ -359,16 +363,19 @@ def doctor_dashboard():
             final_output = doctor_app.invoke(input_state)
 
             # Fetch fresh history for the UI
-            past_history = get_history_for_patient(pid=validation["pid"], name=validation["patient_name"])
+            past_history = get_history_for_patient(
+                pid=validation.get("pid"),
+                name=validation.get("patient_name")
+            )
 
             return render_template(
                 "doctor.html",
                 validation=validation, # Send the name/ID/date we found
-                report=final_output.get("current_report", {}),
-                clinical_suggestion=final_output.get("clinical_suggestion"),
-                trend_insight=final_output.get("trend_insight"),
+                report=final_output.get("current_report", {"patient_name": validation.get("patient_name")}),
+                clinical_suggestion=final_output.get("clinical_suggestion", "Analysis pending..."),
+                trend_insight=final_output.get("trend_insight", "Establishing baseline..."),
                 trends=final_output.get("trends", []),
-                history=past_history,
+                history=past_history if past_history else [],
                 status="PROCESSED"
             )
 

@@ -6,6 +6,27 @@ from logger_config import logger
 
 DB_PATH = os.path.join(os.getcwd(), "data", "medical_history.db")
 
+
+def generate_internal_uid(name, age=None, dob=None, report_date_str=None):
+    """Creating a permamnet UID based on Name and calculated Birth Year."""
+    try:
+        clean_name = name.strip().lower().replace(" ", "")
+        birth_year = "0000" # Default if nothing is found
+
+        if dob and len(str(dob)) >= 4:
+            # extracting year from DOB string (e.g., "1998-05-20" -> "1998")
+            birth_year = str(dob)[:4]
+        elif age and report_date_str:
+            #extracting year from Report Date (e.g., "2026-04-06" -> 2026)
+            report_year = int(str(report_date_str)[:4])
+            birth_year = str(report_year - int(age))
+
+        identity_string = f"{clean_name}-{birth_year}"
+        return hashlib.md5(identity_string.encode()).hexdigest()
+    except Exception as e:
+        logger.error(f"UID Generation failed: {e}")
+        return name.lower().strip()  # falback to just name
+
 def calculate_file_hash(file_path):
     """Generates a SHA-256 hash to uniquely identify the report file."""
     sha256_hash = hashlib.sha256()
@@ -91,11 +112,17 @@ def save_patient_trend_data(file_hash, extracted_data, trend_result):
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
 
-        pid = extracted_data.get("pid") or extracted_data.get("lab_no")
+        raw_pid = extracted_data.get("pid") or extracted_data.get("lab_no") or "Unknown"
         name = extracted_data.get("patient_name", "").strip()
         report_date = extracted_data.get("report_date")
+        age = extracted_data.get("age")
+        dob = extracted_data.get("dob")
+
+        # Generating Permanent Internal ID
+        # this links Report A (LabID 101) and Report B (LabID 999) to the same name
+        internal_pid = generate_internal_uid(name, age, dob, report_date)
+
         medical_json = json.dumps(extracted_data.get("lab_results", []))
-        
         insight = trend_result.get("trend_insight", "")
         suggestion = trend_result.get("clinical_suggestion", "")
 
@@ -103,10 +130,13 @@ def save_patient_trend_data(file_hash, extracted_data, trend_result):
         INSERT OR REPLACE INTO patient_reports
         (file_hash, patient_id, patient_name, report_date, medical_data, llm_insight, clinical_suggestion)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (file_hash, str(pid), name, report_date, medical_json, insight, suggestion))
+        """, (file_hash, str(internal_pid), name, report_date, medical_json, insight, suggestion))
 
         conn.commit()
         conn.close()
+
+        # logging both the original Lab ID and the new Internal UID so i can track the change
+        logger.info(f"Report (lab ID: {raw_pid}) successfully mapped to Internal UID: {internal_pid}")
     except Exception as e:
         logger.error(f"Failed to save data for hash {file_hash}: {str(e)}")
 
@@ -158,6 +188,8 @@ def get_report_scenario(file_hash, extracted_data):
     if check_file_exists(file_hash):
         return "EXISTS_IN_DB", []
 
+    # Calculating UID to search for history across different Lab IDs
+    internal_id = generate_internal_uid(name, extracted_data.get("age"), extracted_data.get("dob"), report_date)
     history = get_history_for_patient(pid=pid, name=name)
 
     if not history:

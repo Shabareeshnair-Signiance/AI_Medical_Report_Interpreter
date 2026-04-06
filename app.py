@@ -1,4 +1,5 @@
 import os
+import re
 import io
 import sys
 import json
@@ -327,29 +328,36 @@ def doctor_dashboard():
                                        error="Could not identify patient in this report.",
                                        validation=validation)
 
-            # 3. PHASE 2: DUPLICATE HANDLING (Instant Response)
+            # 3. PHASE 2: DUPLICATE HANDLING (Safe Dictionary Access)
             if validation["status"] == "DUPLICATE":
                 logger.info(f"Loading data for {validation['patient_name']}")
-                existing_data = validation.get("existing_analysis", [])
-
-                # checking if existing_data has enough elements before accessing 0 and 1
-                t_insight = existing_data[0] if len(existing_data) > 0 else "No trend insight available."
-                c_suggestion = existing_data[1] if len(existing_data) > 1 else "No clinical suggestion available."
                 
-                # Re-fetch history using the REAL name and PID found in the cache
+                # Use .get() or index checks to prevent Error 4
+                existing_data = validation.get("existing_analysis")
+                
+                # Fallback strings if the DB row is missing data
+                t_insight = "No trend insight available."
+                c_suggestion = "No clinical suggestion available."
+                
+                if existing_data:
+                    # If existing_data is a tuple/row, check length before indexing
+                    if len(existing_data) >= 2:
+                        t_insight = existing_data[0]
+                        c_suggestion = existing_data[1]
+
+                # Re-fetch history using the PID found by the Hybrid Matcher
                 past_history = get_history_for_patient(
-                    pid=validation.get("pid", "N/A"),
-                    name=validation.get("patient_name", "Unknown")
+                    pid=validation.get("pid"), 
+                    name=validation.get("patient_name")
                 )
                 
                 return render_template(
                     "doctor.html",
                     validation=validation,
-                    # Ensure these indices match your DB 'SELECT' order
-                    trend_insight=t_insight,
+                    trend_insight=t_insight,      
                     clinical_suggestion=c_suggestion, 
                     history=past_history,
-                    report={"patient_name": validation.get("patient_name", "Patient")}, # Fixes the header
+                    report={"patient_name": validation.get("patient_name")},
                     status="CACHED"
                 )
 
@@ -368,12 +376,17 @@ def doctor_dashboard():
                 name=validation.get("patient_name")
             )
 
+            # Ensuring i don't pass None to the UI
+            report_data = final_output.get("current_report", {})
+            if not report_data.get("patient_name"):
+                report_data["patient_name"] = validation.get("patient_name", "Unknown Patient")
+
             return render_template(
                 "doctor.html",
-                validation=validation, # Send the name/ID/date we found
-                report=final_output.get("current_report", {"patient_name": validation.get("patient_name")}),
-                clinical_suggestion=final_output.get("clinical_suggestion", "Analysis pending..."),
-                trend_insight=final_output.get("trend_insight", "Establishing baseline..."),
+                validation=validation, 
+                report=report_data,
+                clinical_suggestion=final_output.get("clinical_suggestion", "N/A"),
+                trend_insight=final_output.get("trend_insight", "N/A"),
                 trends=final_output.get("trends", []),
                 history=past_history if past_history else [],
                 status="PROCESSED"

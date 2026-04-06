@@ -89,9 +89,26 @@ def llm_doctor_extractor(report_text, file_path=None):
 
         # -------- APPLY NORMALIZATION HERE --------
         # This fixes the 'Sorting Error' in TrendAgent
+        # ensuring all required keys exist so app doesn't crash with a Keyerror
+        required_keys = ["patient_name", "age", "dob", "pid", "lab_results"]
+        for key in required_keys:
+            if key not in data:
+                data[key] = "Not Available" if key != "lab_results" else []
+
+        # 2. Adding the PID cleaning logic below
+        if isinstance(data.get("pid"), str):
+            data["pid"] = data["pid"].replace("PID:", "").replace("ID:", "").strip()
+
+        # 3. Adding the Age Normalization logic here
+        if data.get("age"):
+            age_match = re.search(r"(\d+)", str(data["age"]))
+            if age_match:
+                data["age"] = age_match.group(1)
+
+        # 4. Existing date normalization
         raw_date = data.get("report_date")
         data["report_date"] = normalize_date(raw_date)
-        
+       
         logger.info(f"Final Normalized Date: {data['report_date']}")
         logger.info("LLM Extraction Successful")
 

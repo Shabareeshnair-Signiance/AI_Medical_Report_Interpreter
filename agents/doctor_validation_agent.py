@@ -72,40 +72,37 @@ class DoctorValidationAgent:
     def validate_for_doctor(self, file_path):
         logger.info(f"Doctor Validation: Checking file {file_path}")
 
-        # 1. Read PDF first to check content validity
+        # 1. Read PDF first
         text = read_pdf(file_path)
         
-        # ADDED: Medical Content Check
         if not self._is_medical_content(text):
-            logger.warning(f"Validation Failed: {file_path} does not appear to be a medical report.")
             return {
                 "is_valid": False,
                 "status": "INVALID_FORMAT",
                 "error_message": "The uploaded file does not appear to be a valid medical lab report."
             }
 
-        # 2. Generate Hash for Duplicate Check
+        # 2. Generate Hash
         file_hash = calculate_file_hash(file_path)
         
-        # 3. Instant Check: Is this exact file already in the DB?
+        # 3. Instant Check: Duplicate Detection
         existing = get_existing_analysis(file_hash)
         if existing:
             logger.info("Duplicate file detected. Loading real data from cache.")
-            # Note: 'existing' structure depends on your DB schema. 
-            # Assuming: (id, hash, name, pid, report_date, analysis_json, created_at)
+            # SAFE ACCESS: Using names instead of [index]
             return {
                 "status": "DUPLICATE",
                 "is_valid": True,
                 "file_hash": file_hash,
                 "existing_analysis": existing, 
-                "patient_name": existing[2], 
-                "pid": existing[3],          
-                "report_date": existing[4],
-                "stored_on": existing[6] if len(existing) > 6 else "Unknown", # ADDED: created_at date
+                "patient_name": existing["patient_name"], 
+                "pid": existing["patient_id"],           
+                "report_date": existing["report_date"],
+                "stored_on": "Already Analyzed", 
                 "history_count": 0
             }
 
-        # 4. Extract Identity using HYBRID TIERED LOGIC (Regex + LLM)
+        # 4. Extract Identity
         identity = self._get_hybrid_identity(text)
 
         result = {
@@ -113,44 +110,26 @@ class DoctorValidationAgent:
             "status": "NEW_REPORT",
             "file_hash": file_hash,
             "patient_name": identity.get("name"),
-            # Tiered Fallback for PID: 
-            # If both Regex and LLM fail, we mark as N/A to prevent KeyError
             "pid": str(identity.get("pid")).strip() if identity.get("pid") else "N/A",
             "report_date": identity.get("date"),
             "history_count": 0,
             "existing_analysis": None
         }
-        
-        # # 4. Extract Identity using Doctor-Specific LLM
-        # identity = llm_extract_doctor_identity(text)
 
-        # result = {
-        #     "is_valid": True,
-        #     "status": "NEW_REPORT",
-        #     "file_hash": file_hash,
-        #     "patient_name": identity.get("name"),
-        #     "pid": identity.get("identifier") or identity.get("pid") or "N/A",
-        #     "report_date": identity.get("date"),
-        #     "history_count": 0,
-        #     "existing_analysis": None
-        # }
-
-        # 5. Mandatory Field Check: Patient Name
+        # 5. Mandatory Field Check
         if not result["patient_name"] or result["patient_name"].lower() in ["unknown", "not found"]:
             result["is_valid"] = False
             result["status"] = "MISSING_IDENTITY"
-            logger.warning("Validation Failed: No patient name extracted.")
             return result
         
-        # 6. Check for Patient History (PID or Name match)
+        # 6. Check for Patient History
         history = get_history_for_patient(pid=result["pid"], name=result["patient_name"])
 
         if history:
-            # Sort history by date to find the 'most recent stored' date
             result["status"] = "HISTORY_FOUND"
             result["history_count"] = len(history)
-            # Pass the date of the last report to the UI
-            result["last_visit"] = history[-1][4] if history else None 
+            # SAFE ACCESS: history is a list of dicts, get the date from the last one
+            result["last_visit"] = history[-1].get("report_date") if history else None 
         else:
             result["status"] = "NEW_PATIENT"
             

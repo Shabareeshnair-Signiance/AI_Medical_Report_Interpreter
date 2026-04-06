@@ -57,6 +57,44 @@ def generate_internal_uid(name, age=None, dob=None, report_date_str=None):
         logger.error(f"UID Generation failed: {e}")
         return name.lower().strip().replace(" ", "")
     
+def get_trends_for_patient(pid):
+    """Fetches all historical biomarker data for a specific patient to build the trend graph."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # FIX: Changed 'extracted_data' to 'medical_data' to match your schema
+        cursor.execute("""
+            SELECT report_date, medical_data 
+            FROM patient_reports 
+            WHERE patient_id = ? 
+            ORDER BY report_date ASC
+        """, (str(pid),))
+        
+        rows = cursor.fetchall()
+        conn.close()
+
+        trend_list = []
+        for row in rows:
+            # medical_data is a JSON list of dictionaries
+            test_results = json.loads(row['medical_data']) 
+            
+            # Since lab_results is a LIST, we loop through it differently
+            for test in test_results:
+                trend_list.append({
+                    "date": row['report_date'],
+                    "parameter": test.get("parameter") or test.get("test_name") or "Unknown",
+                    "value": test.get("value"),
+                    "status": test.get("status", "normal"),
+                    "status_class": test.get("status", "normal").lower()
+                })
+        
+        return trend_list
+    except Exception as e:
+        logger.error(f"Error fetching trends for PID {pid}: {e}")
+        return []
+
 def calculate_file_hash(file_path):
     """Generates a SHA-256 hash to uniquely identify the report file."""
     sha256_hash = hashlib.sha256()
@@ -207,6 +245,15 @@ def get_existing_analysis(file_hash):
             WHERE file_hash = ?
         """, (file_hash,))
         
+# SELECT 
+#                 llm_insight, 
+#                 clinical_suggestion, 
+#                 patient_name, 
+#                 patient_id, 
+#                 report_date 
+#             FROM patient_reports 
+#             WHERE file_hash = ?
+
         row = cursor.fetchone()
         conn.close()
         

@@ -110,6 +110,33 @@ def llm_doctor_extractor(report_text, file_path=None):
         data["report_date"] = normalize_date(raw_date)
        
         logger.info(f"Final Normalized Date: {data['report_date']}")
+
+        # 5. Hybrid Table or Value Normalization (Tier 3)
+        # This fixes the "Result: 185.00 mg/dL" splitting issue and ensures numeric values
+        if "lab_results" in data and isinstance(data["lab_results"], list):
+            for item in data["lab_results"]:
+                # Ensure every sub-key exists to prevent Error 4 in the UI
+                for sub_key in ["test", "value", "unit", "reference_range", "status"]:
+                    if sub_key not in item:
+                        item[sub_key] = "Not Available"
+
+                # TIER 2 & 3: Clean numeric values and separate units
+                # If 'value' contains '185.00 mg/dL', this splits them properly
+                raw_val = str(item.get("value", ""))
+                # Regex to find the first number (float or int)
+                val_match = re.search(r"(\d+\.?\d*)", raw_val)
+                
+                if val_match:
+                    numeric_val = val_match.group(1)
+                    # If the unit was accidentally included in 'value', try to move it to 'unit'
+                    if "mg/dL" in raw_val.lower() and item["unit"] == "Not Available":
+                        item["unit"] = "mg/dL"
+                    
+                    item["value"] = numeric_val # Force value to be just the number
+                
+                # Cleanup Test Names (Removes extra colons or 'Investigation' labels)
+                item["test"] = item["test"].replace("Investigation:", "").strip()
+
         logger.info("LLM Extraction Successful")
 
         return data
@@ -124,19 +151,19 @@ def llm_doctor_extractor(report_text, file_path=None):
 
 
 # -------- Testing --------
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    from processing.pdf_reader import read_pdf
+#     from processing.pdf_reader import read_pdf
 
-    #file_path = "sample_data/Glucose_report.pdf"
-    #file_path = "sample_data/platelet_report.pdf"
-    file_path = "sample_data/Sample Report.pdf"
+#     #file_path = "sample_data/Glucose_report.pdf"
+#     #file_path = "sample_data/platelet_report.pdf"
+#     file_path = "sample_data/Sample Report.pdf"
 
-    print("\n==== Running LLM Extractor Test ====\n")
+#     print("\n==== Running LLM Extractor Test ====\n")
 
-    text = read_pdf(file_path)
+#     text = read_pdf(file_path)
 
-    result = llm_doctor_extractor(text, file_path)
+#     result = llm_doctor_extractor(text, file_path)
 
-    print("\n==== Output ====\n")
-    print(result)
+#     print("\n==== Output ====\n")
+#     print(result)

@@ -358,6 +358,41 @@ def doctor_dashboard():
                     # We pass a minimal report object so the UI doesn't break
                     report={"patient_name": validation.get("patient_name")},
                     status="CACHED"
+                )# 3. PHASE 2: DUPLICATE HANDLING
+            if validation["status"] == "DUPLICATE":
+                logger.info(f"Duplicate found for {validation['patient_name']}. Loading from cache.")
+                
+                # Fetch history first - this is usually the safest data
+                past_history = get_history_for_patient(pid=validation.get("pid"), name=validation.get("patient_name"))
+                
+                # Default fallback values
+                t_insight = "No trend insight available."
+                c_suggestion = "No clinical suggestion available."
+                
+                # Safely extract existing analysis
+                existing_row = validation.get("existing_analysis")
+                
+                if existing_row:
+                    try:
+                        # Try accessing as a dictionary (if using sqlite3.Row)
+                        if hasattr(existing_row, "keys"):
+                            t_insight = existing_row["llm_insight"] if "llm_insight" in existing_row.keys() else t_insight
+                            c_suggestion = existing_row["clinical_suggestion"] if "clinical_suggestion" in existing_row.keys() else c_suggestion
+                        else:
+                            # If it's a plain tuple, take the first two elements safely
+                            t_insight = existing_row[0] if len(existing_row) > 0 else t_insight
+                            c_suggestion = existing_row[1] if len(existing_row) > 1 else c_suggestion
+                    except Exception as e:
+                        logger.warning(f"Metadata extraction failed, using defaults: {e}")
+
+                return render_template(
+                    "doctor.html",
+                    validation=validation,
+                    trend_insight=t_insight,
+                    clinical_suggestion=c_suggestion,
+                    history=past_history,
+                    report={"patient_name": validation.get("patient_name")},
+                    status="CACHED"
                 )
 
             # 4. PHASE 3: NEW PROCESSING (Run LangGraph)

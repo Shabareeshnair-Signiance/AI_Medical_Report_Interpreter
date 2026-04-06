@@ -192,6 +192,8 @@ def get_existing_analysis(file_hash):
     """Checks if we already have the analysis for this specific file in the DB."""
     try:
         conn = sqlite3.connect(DB_PATH)
+        # this line makes the row behave like a dictionary
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         # FIX: Added patient_name, patient_id, and report_date to the SELECT
         cursor.execute("""

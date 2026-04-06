@@ -328,35 +328,34 @@ def doctor_dashboard():
                                        error="Could not identify patient in this report.",
                                        validation=validation)
 
-            # 3. PHASE 2: DUPLICATE HANDLING (Safe Dictionary Access)
+            # 3. PHASE 2: DUPLICATE HANDLING (Full Replacement)
             if validation["status"] == "DUPLICATE":
-                logger.info(f"Loading data for {validation['patient_name']}")
+                existing_row = validation.get("existing_analysis")
                 
-                # Use .get() or index checks to prevent Error 4
-                existing_data = validation.get("existing_analysis")
-                
-                # Fallback strings if the DB row is missing data
-                t_insight = "No trend insight available."
-                c_suggestion = "No clinical suggestion available."
-                
-                if existing_data:
-                    # If existing_data is a tuple/row, check length before indexing
-                    if len(existing_data) >= 2:
-                        t_insight = existing_data[0]
-                        c_suggestion = existing_data[1]
+                # --- Safe Data Extraction ---
+                try:
+                    # Try accessing by column names (Best practice)
+                    t_insight = existing_row["llm_insight"] if "llm_insight" in existing_row.keys() else "N/A"
+                    c_suggestion = existing_row["clinical_suggestion"] if "clinical_suggestion" in existing_row.keys() else "N/A"
+                except:
+                    # Fallback if the database returned a tuple/list
+                    t_insight = existing_row[0] if (existing_row and len(existing_row) > 0) else "No insight"
+                    c_suggestion = existing_row[1] if (existing_row and len(existing_row) > 1) else "No suggestion"
 
-                # Re-fetch history using the PID found by the Hybrid Matcher
+                # Re-fetch history using the cleaned Hybrid PID
                 past_history = get_history_for_patient(
                     pid=validation.get("pid"), 
                     name=validation.get("patient_name")
                 )
                 
+                # Return the full template for the "Already Processed" state
                 return render_template(
                     "doctor.html",
                     validation=validation,
-                    trend_insight=t_insight,      
-                    clinical_suggestion=c_suggestion, 
+                    trend_insight=t_insight,
+                    clinical_suggestion=c_suggestion,
                     history=past_history,
+                    # We pass a minimal report object so the UI doesn't break
                     report={"patient_name": validation.get("patient_name")},
                     status="CACHED"
                 )

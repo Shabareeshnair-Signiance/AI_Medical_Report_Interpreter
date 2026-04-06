@@ -2,6 +2,7 @@ import sqlite3
 import hashlib
 import json
 import os
+import re
 from logger_config import logger
 
 DB_PATH = os.path.join(os.getcwd(), "data", "medical_history.db")
@@ -23,24 +24,30 @@ def _get_fuzzy_clean_name(name):
 def generate_internal_uid(name, age=None, dob=None, report_date_str=None):
     """Hybrid UID Generator: Tier 1 (Full) -> Tier 2 (Partial) -> Tier 3 (Fuzzy)"""
     try:
-        # TIER 3: Use the fuzzy cleaner to handle 'Yash M. Patel' vs 'Yash Patel'
         clean_name = _get_fuzzy_clean_name(name)
-        
         birth_year = "0000" 
 
-        # TIER 2: Match based on Birth Year if PID/DOB is messy
-        if dob and len(str(dob)) >= 4:
-            birth_year = str(dob)[:4]
+        # 1. Try DOB first (Most accurate)
+        if dob and any(char.isdigit() for char in str(dob)):
+            year_match = re.search(r"(\d{4})", str(dob))
+            if year_match:
+                birth_year = year_match.group(1)
+        
+        # 2. Try Age + Report Date subtraction
         elif age and report_date_str:
             try:
-                report_year = int(str(report_date_str)[:4])
-                # Ensure age is numeric before subtraction
-                clean_age = int(re.search(r'\d+', str(age)).group())
-                birth_year = str(report_year - clean_age)
-            except:
-                pass
+                # Extract 4-digit year from report date
+                year_match = re.search(r"(\d{4})", str(report_date_str))
+                # Extract digits from age (handles "21 Years")
+                age_match = re.search(r"(\d+)", str(age))
+                
+                if year_match and age_match:
+                    r_year = int(year_match.group(1))
+                    p_age = int(age_match.group(1))
+                    birth_year = str(r_year - p_age)
+            except Exception:
+                birth_year = "0000"
 
-        # TIER 1: The Final Identity String
         identity_string = f"{clean_name}-{birth_year}"
         uid = hashlib.md5(identity_string.encode()).hexdigest()
         

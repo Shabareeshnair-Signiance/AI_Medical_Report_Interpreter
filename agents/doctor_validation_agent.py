@@ -33,6 +33,41 @@ class DoctorValidationAgent:
         matches = sum(1 for word in self.medical_keywords if word in text_lower)
         # If at least 3 keywords match, we consider it a medical report
         return matches >= 3
+    
+    def _get_hybrid_identity(self, text):
+        """Tiered Identity Matching: Tier 1 (Strict Regex) -> Tier 2 (Fuzzy Regex) -> Tier 3 (LLM)"""
+        import re
+        identity = {"pid": None, "name": None, "date": None}
+
+        # --- TIER 1: Strict Regex (Fastest) ---
+        strict_match = re.search(r"PID:\s*(\d+)", text)
+        if strict_match:
+            identity["pid"] = strict_match.group(1)
+            logger.info(f"Tier 1 Match Success: Found PID {identity['pid']}")
+
+        # --- TIER 2: Fuzzy Regex (Handles pipes '|' and different labels) ---
+        if not identity["pid"]:
+            # Looks for PID, ID, or Lab No followed by symbols and 3-6 digits
+            fuzzy_match = re.search(r"(?:PID|ID|Lab No|UHID)[\s|:]*(\d{3,6})", text, re.IGNORECASE)
+            if fuzzy_match:
+                identity["pid"] = fuzzy_match.group(1)
+                logger.info(f"Tier 2 Match Success: Found PID {identity['pid']}")
+
+        # --- TIER 3: LLM Extractor (The Ultimate Fallback) ---
+        # We call the LLM to get the Name and Date, and to find the PID if Regex failed
+        logger.info("Running Tier 3: LLM Identity Extraction")
+        llm_identity = llm_extract_doctor_identity(text)
+        
+        # Final Decision Logic:
+        # 1. Use Regex PID if found; otherwise, use LLM's identified PID.
+        final_pid = identity["pid"] or llm_identity.get("identifier") or llm_identity.get("pid")
+        
+        # 2. Use LLM for Name and Date as they are too complex for reliable Regex.
+        return {
+            "pid": final_pid,
+            "name": llm_identity.get("name"),
+            "date": llm_identity.get("date")
+        }
 
     def validate_for_doctor(self, file_path):
         logger.info(f"Doctor Validation: Checking file {file_path}")
@@ -70,19 +105,35 @@ class DoctorValidationAgent:
                 "history_count": 0
             }
 
-        # 4. Extract Identity using Doctor-Specific LLM
-        identity = llm_extract_doctor_identity(text)
+        # 4. Extract Identity using HYBRID TIERED LOGIC (Regex + LLM)
+        identity = self._get_hybrid_identity(text)
 
         result = {
             "is_valid": True,
             "status": "NEW_REPORT",
             "file_hash": file_hash,
             "patient_name": identity.get("name"),
-            "pid": identity.get("identifier") or identity.get("pid") or "N/A",
+            # Tiered Fallback for PID: 
+            # If both Regex and LLM fail, we mark as N/A to prevent KeyError
+            "pid": str(identity.get("pid")).strip() if identity.get("pid") else "N/A",
             "report_date": identity.get("date"),
             "history_count": 0,
             "existing_analysis": None
         }
+        
+        # # 4. Extract Identity using Doctor-Specific LLM
+        # identity = llm_extract_doctor_identity(text)
+
+        # result = {
+        #     "is_valid": True,
+        #     "status": "NEW_REPORT",
+        #     "file_hash": file_hash,
+        #     "patient_name": identity.get("name"),
+        #     "pid": identity.get("identifier") or identity.get("pid") or "N/A",
+        #     "report_date": identity.get("date"),
+        #     "history_count": 0,
+        #     "existing_analysis": None
+        # }
 
         # 5. Mandatory Field Check: Patient Name
         if not result["patient_name"] or result["patient_name"].lower() in ["unknown", "not found"]:

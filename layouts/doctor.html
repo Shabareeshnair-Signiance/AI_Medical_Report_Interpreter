@@ -29,7 +29,6 @@
             background-color: #f8f9fa;
             border-radius: 8px;
             border-left: 4px solid #007bff;
-            /* Force 2-3 lines max */
             max-height: 80px; 
             overflow: hidden;
         }
@@ -46,10 +45,9 @@
             padding: 10px;
             border-radius: 8px;
             border: 1px solid #f0f0f0;
-            height: 320px; /* Increased height for bigger graph */
+            height: 320px; 
         }
         
-        /* Rest of your CSS remains unchanged */
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f9; color: #333; margin: 0; padding: 0; }
         .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
         header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #0056b3; padding-bottom: 15px; }
@@ -83,23 +81,21 @@
         .card-header h2 { margin: 0; font-size: 1.3rem; color: #003366; }
         .icon { font-size: 1.6rem; margin-right: 15px; }
         .card-body { padding: 25px; line-height: 1.8; color: #444; }
-        .symlink-card { border-left-color: #28a745; }
-        .symlink-card .card-header { background-color: #f6fff9; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { text-align: left; padding: 16px; border-bottom: 1px solid #f0f0f0; }
-        th { background-color: #f8f9fa; color: #666; font-size: 12px; text-transform: uppercase; }
-        .audit-trail { margin-top: 25px; padding: 15px 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef; display: flex; flex-wrap: wrap; gap: 20px; }
-        .audit-item { display: flex; flex-direction: column; gap: 4px; }
-        .audit-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #6c757d; letter-spacing: 0.5px; }
-        .audit-value { font-family: 'Courier New', Courier, monospace; font-size: 0.9rem; color: #28a745; font-weight: 600; }
-        .audit-item.warning .audit-value { color: #fd7e14; }
-        .detail-item .value { color: #0056b3; font-weight: 600; }
-        .trend-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
-        .trend-table th { background-color: #f8fbff; color: #003366; text-transform: none; font-weight: 700; font-size: 0.9rem; }
-        .status-pill { padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; display: inline-block; }
-        .status-pill.high { background: #fff5f5; color: #dc3545; border: 1px solid #feb2b2; }
-        .status-pill.low { background: #fff9db; color: #f08c00; border: 1px solid #ffe066; }
-        .status-pill.normal { background: #f0fff4; color: #2f855a; border: 1px solid #9ae6b4; }
+        
+        /* Table Styles */
+        .trend-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .trend-table th { background-color: #f8fbff; color: #003366; text-align: left; padding: 12px; }
+        .trend-table td { padding: 12px; border-bottom: 1px solid #f0f0f0; }
+
+        /* Row Level Logic Colors */
+        .row-high { background-color: rgba(220, 53, 69, 0.05) !important; border-left: 4px solid #dc3545; }
+        .row-low { background-color: rgba(253, 126, 20, 0.05) !important; border-left: 4px solid #fd7e14; }
+        .row-normal { background-color: rgba(40, 167, 69, 0.03) !important; border-left: 4px solid #28a745; }
+
+        .status-pill { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+        .status-pill.high { background: #dc3545; color: white; }
+        .status-pill.low { background: #fd7e14; color: white; }
+        .status-pill.normal { background: #28a745; color: white; }
     </style>
 </head>
 <body>
@@ -132,7 +128,6 @@
                             {% endif %}
                         </div>
                     </div>
-
                     <div class="val-content">
                         <div class="val-info-group">
                             <label>Report Verification</label>
@@ -144,7 +139,6 @@
                                 {% endif %}
                             </p>
                         </div>
-
                         <div class="val-info-group">
                             <label>Report Type</label>
                             <span class="type-pill">
@@ -157,9 +151,7 @@
                                 {% endif %}
                             </span>
                         </div>
-
                         <div class="val-divider"></div>
-
                         <div class="val-patient-details">
                             <h3>Patient Details</h3>
                             <div class="details-grid">
@@ -176,25 +168,6 @@
                                     <span class="value">{{ validation.report_date or 'Not Found' }}</span>
                                 </div>
                             </div>
-                            
-                            {% if validation.is_valid %}
-                            <div class="audit-trail">
-                                <div class="audit-item">
-                                    <span class="audit-label">System Status:</span>
-                                    <span class="audit-value">Verified & Encrypted</span>
-                                </div>
-                                <div class="audit-item">
-                                    <span class="audit-label">Record Hash:</span>
-                                    <span class="audit-value">MD5-{{ validation.pid or 'AUTO' }}-CONFIRMED</span>
-                                </div>
-                                {% if validation.status == 'DUPLICATE' %}
-                                <div class="audit-item warning">
-                                    <span class="audit-label">Database Sync:</span>
-                                    <span class="audit-value">File already exists in clinical repository</span>
-                                </div>
-                                {% endif %}
-                            </div>
-                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -211,6 +184,7 @@
                     <div class="card-body">
                         <div class="trend-grid-layout">
                             <div class="trend-left-panel">
+                                {% set active_list = trend_data if trend_data else trends %}
                                 <table class="trend-table">
                                     <thead>
                                         <tr>
@@ -220,12 +194,16 @@
                                         </tr>
                                     </thead>
                                     <tbody id="trendTableBody">
-                                        {% if trend_data %}
-                                            {% for row in trend_data %}
-                                            <tr>
-                                                <td>{{ row.parameter }}</td>
-                                                <td><strong>{{ row.value }}</strong></td>
-                                                <td><span class="status-pill {{ row.status_class }}">{{ row.status }}</span></td>
+                                        {% if active_list %}
+                                            {% for row in active_list %}
+                                            <tr class="row-{{ row.status|lower if row.status else 'normal' }}">
+                                                <td><strong>{{ row.parameter or row.name or row.biomarker or row.test_name or 'Unknown' }}</strong></td>
+                                                <td>{{ row.value }}</td>
+                                                <td>
+                                                    <span class="status-pill {{ row.status|lower if row.status else 'normal' }}">
+                                                        {{ row.status if row.status else 'Normal' }}
+                                                    </span>
+                                                </td>
                                             </tr>
                                             {% endfor %}
                                         {% else %}
@@ -239,7 +217,6 @@
                                 <div class="chart-wrapper">
                                     <canvas id="trendChart"></canvas>
                                 </div>
-
                                 <div class="summary-box">
                                     <h4>Summary</h4>
                                     <p>{{ trend_insight if trend_insight else "Initial baseline captured. Historical trends will appear after future uploads." }}</p>
@@ -250,8 +227,8 @@
                 </section>
 
                 {% if clinical_suggestion %}
-                <section class="card symlink-card">
-                    <div class="card-header">
+                <section class="card symlink-card" style="border-left: 6px solid #28a745;">
+                    <div class="card-header" style="background-color: #f6fff9;">
                         <span class="icon">🔍</span>
                         <h2>Clinical Detective Suggestion</h2>
                     </div>

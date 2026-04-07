@@ -194,20 +194,20 @@
                                         </tr>
                                     </thead>
                                     <tbody id="trendTableBody">
-                                        {% if active_list %}
-                                            {% for row in active_list %}
-                                            <tr class="row-{{ row.status|lower if row.status else 'normal' }}">
-                                                <td><strong>{{ row.parameter or row.name or row.biomarker or row.test_name or 'Unknown' }}</strong></td>
-                                                <td>{{ row.value }}</td>
+                                        {% if trends or trend_data %}
+                                            {% for row in (trends or trend_data) %}
+                                            <tr style="cursor: pointer;">
+                                                <td><strong>{{ row.parameter or row.name or row.biomarker or 'Test' }}</strong></td>
+                                                <td>{{ row.value or row.result or '0' }}</td>
                                                 <td>
-                                                    <span class="status-pill {{ row.status|lower if row.status else 'normal' }}">
-                                                        {{ row.status if row.status else 'Normal' }}
+                                                    <span class="status-pill pill-{{ row.status|lower if row.status else 'normal' }}">
+                                                        {{ row.status or 'Normal' }}
                                                     </span>
                                                 </td>
                                             </tr>
                                             {% endfor %}
                                         {% else %}
-                                            <tr><td colspan="3" style="text-align:center;">Awaiting biomarker data...</td></tr>
+                                            <tr><td colspan="3">Awaiting data...</td></tr>
                                         {% endif %}
                                     </tbody>
                                 </table>

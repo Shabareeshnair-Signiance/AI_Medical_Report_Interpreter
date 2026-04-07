@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const resultsGrid = document.querySelector('.results-grid');
     const validationBar = document.querySelector('.validation-card');
 
-    // 1. Initialize Trend Graph (Empty / Awaiting Click)
+    // 1. Initialize Trend Graph
     let trendChart;
     const ctx = document.getElementById('trendChart');
     
@@ -12,10 +12,10 @@ document.addEventListener('DOMContentLoaded', function() {
         trendChart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: ['Previous', 'Current Result'], // Initial labels
+                labels: ['Current Result'], // Removed "Previous" until real data is sent from app.py
                 datasets: [{
-                    label: 'Click a biomarker to view',
-                    data: [0, 0], 
+                    label: 'Select a biomarker to view trend', // Removed hardcoded FBS label
+                    data: [0], 
                     borderColor: '#0056b3',
                     backgroundColor: 'rgba(0, 86, 179, 0.1)',
                     borderWidth: 3,
@@ -39,83 +39,71 @@ document.addEventListener('DOMContentLoaded', function() {
                     x: { grid: { display: false } }
                 },
                 plugins: {
-                    legend: { display: true, position: 'top', labels: { boxWidth: 12, usePointStyle: true } },
-                    tooltip: { backgroundColor: 'rgba(0, 0, 0, 0.8)', padding: 12, cornerRadius: 4 }
+                    legend: { display: true, position: 'top', labels: { boxWidth: 12, usePointStyle: true } }
                 }
             }
         });
     }
 
-    // 2. The "Click-to-Graph" Wiring
+    // 2. Updated "Click-to-Graph" Wiring
+    // NOTE: Ensure your <tbody> in HTML has id="trendTableBody"
     const tableRows = document.querySelectorAll('#trendTableBody tr');
     
     tableRows.forEach(row => {
+        row.style.cursor = 'pointer'; // Make it look clickable
         row.addEventListener('click', function() {
-            // Read the cells from the clicked row
             const cells = this.querySelectorAll('td');
             
-            // Ensure this is a valid data row (not the "Awaiting data" message)
             if (cells.length >= 2) {
                 let biomarkerName = cells[0].innerText.trim();
                 let resultText = cells[1].innerText.trim();
                 
-                // Extract just the numbers from the result column
+                // Extract number (handles "245.00", "31 mg/dL", etc.)
                 let currentValue = parseFloat(resultText.replace(/[^\d.-]/g, ''));
 
                 if (!isNaN(currentValue) && trendChart) {
-                    // Visual feedback: dim other rows, highlight clicked one
-                    tableRows.forEach(r => r.style.opacity = '0.5');
-                    this.style.opacity = '1';
+                    // UI Feedback
+                    tableRows.forEach(r => r.style.backgroundColor = 'transparent');
+                    this.style.backgroundColor = 'rgba(0, 86, 179, 0.05)';
 
-                    // Update the Chart dynamically
-                    trendChart.data.datasets[0].label = biomarkerName !== "Unknown" ? biomarkerName : "Selected Biomarker";
+                    // Update Graph Title (Removes the "FBS" default)
+                    trendChart.data.datasets[0].label = biomarkerName !== "Unknown" ? biomarkerName : "Biomarker Value";
                     
-                    // Note: Since your backend doesn't send historical data points yet, 
-                    // we create a baseline point and plot the current value so the graph works visually.
-                    let baselineValue = (currentValue * 0.9).toFixed(2); // Mock baseline 10% lower
+                    // Update Graph Data
+                    // For now, we show one solid point. When you send app.py, we will add real history.
+                    trendChart.data.labels = ['Current Result'];
+                    trendChart.data.datasets[0].data = [currentValue];
                     
-                    trendChart.data.labels = ['Baseline', 'Current Result'];
-                    trendChart.data.datasets[0].data = [baselineValue, currentValue];
-                    
-                    trendChart.update(); // Force the graph to redraw
+                    trendChart.update();
                 }
             }
         });
     });
 
-    // Automatically click the first row to populate the graph on load
+    // Auto-click first valid row on load
     if (tableRows.length > 0 && tableRows[0].querySelectorAll('td').length >= 2) {
         tableRows[0].click();
     }
 
-    // 3. Auto-Scroll to Results
+    // 3. UI Fixes (Scroll & Shake)
     if (resultsGrid || validationBar) {
         const target = validationBar || resultsGrid;
         target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    // 4. Validation Shake Effect
     if (validationBar && validationBar.classList.contains('val-invalid')) {
         validationBar.style.animation = "shake 0.5s cubic-bezier(.36,.07,.19,.97) both";
     }
 
-    // 5. Form Submission Feedback
+    // 4. Form Submission
     if (uploadForm) {
-        uploadForm.addEventListener('submit', function(e) {
+        uploadForm.addEventListener('submit', function() {
             analyzeBtn.disabled = true;
-            analyzeBtn.style.backgroundColor = '#6c757d';
-            analyzeBtn.style.cursor = 'not-allowed';
-            analyzeBtn.innerHTML = `<span class="loading-spinner">⌛</span> Processing Clinical Data...`;
-
-            if (resultsGrid) {
-                resultsGrid.style.transition = 'opacity 0.5s ease';
-                resultsGrid.style.opacity = '0.3';
-                resultsGrid.style.filter = 'grayscale(100%)';
-            }
+            analyzeBtn.innerHTML = `<span class="loading-spinner">⌛</span> Processing...`;
         });
     }
 
-    // 6. CSS Injection for Animations
+    // 5. Necessary CSS for interactions
     const style = document.createElement('style');
     style.innerHTML = `
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -125,13 +113,8 @@ document.addEventListener('DOMContentLoaded', function() {
             30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
             40%, 60% { transform: translate3d(4px, 0, 0); }
         }
-        .loading-spinner {
-            display: inline-block;
-            animation: spin 2s linear infinite;
-            margin-right: 8px;
-        }
-        #trendTableBody tr { cursor: pointer; transition: opacity 0.2s; }
-        #trendTableBody tr:hover { opacity: 0.8 !important; }
+        .loading-spinner { display: inline-block; animation: spin 2s linear infinite; margin-right: 8px; }
+        #trendTableBody tr:hover { background-color: #f8f9fa !important; }
     `;
     document.head.appendChild(style);
 });

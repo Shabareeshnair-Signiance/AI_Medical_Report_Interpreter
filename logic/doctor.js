@@ -1,120 +1,116 @@
 document.addEventListener('DOMContentLoaded', function() {
-    const uploadForm = document.querySelector('form');
-    const analyzeBtn = document.querySelector('.btn-primary');
-    const resultsGrid = document.querySelector('.results-grid');
-    const validationBar = document.querySelector('.validation-card');
-
-    // 1. Initialize Trend Graph
-    let trendChart;
+    const tableRows = document.querySelectorAll('#trendTableBody tr');
     const ctx = document.getElementById('trendChart');
-    
+    let trendChart;
+
+    // 1. Initialize Chart with medical-friendly defaults
     if (ctx) {
         trendChart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: ['Current Result'], // Removed "Previous" until real data is sent from app.py
+                labels: [], 
                 datasets: [{
-                    label: 'Select a biomarker to view trend', // Removed hardcoded FBS label
-                    data: [0], 
+                    label: 'Biomarker Trend',
+                    data: [],
                     borderColor: '#0056b3',
                     backgroundColor: 'rgba(0, 86, 179, 0.1)',
                     borderWidth: 3,
-                    tension: 0.4,
+                    tension: 0.3,
                     fill: true,
                     pointRadius: 6,
-                    pointHoverRadius: 8,
-                    pointBackgroundColor: '#0056b3'
+                    pointBackgroundColor: '#0056b3',
+                    pointHoverRadius: 8
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                layout: { padding: { top: 10, bottom: 10, left: 5, right: 5 } },
                 scales: {
                     y: { 
-                        beginAtZero: false,
-                        grid: { color: 'rgba(0, 0, 0, 0.05)' },
-                        title: { display: true, text: 'Value', font: { weight: 'bold' } }
+                        beginAtZero: false, 
+                        grid: { color: 'rgba(0,0,0,0.05)' },
+                        title: { display: true, text: 'Value', font: { weight: 'bold' } } 
                     },
                     x: { grid: { display: false } }
                 },
                 plugins: {
-                    legend: { display: true, position: 'top', labels: { boxWidth: 12, usePointStyle: true } }
+                    legend: { display: true, position: 'top' }
                 }
             }
         });
     }
 
-    // 2. Updated "Click-to-Graph" Wiring
-    // NOTE: Ensure your <tbody> in HTML has id="trendTableBody"
-    const tableRows = document.querySelectorAll('#trendTableBody tr');
-    
-    tableRows.forEach(row => {
-        row.style.cursor = 'pointer'; // Make it look clickable
-        row.addEventListener('click', function() {
-            const cells = this.querySelectorAll('td');
-            
-            if (cells.length >= 2) {
-                let biomarkerName = cells[0].innerText.trim();
-                let resultText = cells[1].innerText.trim();
+    // 2. The Trend Logic: Scan the table for historical matches
+    function updateGraphForBiomarker(selectedRow) {
+        const cells = selectedRow.querySelectorAll('td');
+        if (cells.length < 2) return;
+
+        const selectedName = cells[0].innerText.trim();
+        let historyData = [];
+        let historyLabels = [];
+
+        // Loop through the WHOLE table to find every instance of this test
+        tableRows.forEach((r) => {
+            const rCells = r.querySelectorAll('td');
+            if (rCells.length >= 2) {
+                const rowName = rCells[0].innerText.trim();
                 
-                // Extract number (handles "245.00", "31 mg/dL", etc.)
-                let currentValue = parseFloat(resultText.replace(/[^\d.-]/g, ''));
-
-                if (!isNaN(currentValue) && trendChart) {
-                    // UI Feedback
-                    tableRows.forEach(r => r.style.backgroundColor = 'transparent');
-                    this.style.backgroundColor = 'rgba(0, 86, 179, 0.05)';
-
-                    // Update Graph Title (Removes the "FBS" default)
-                    trendChart.data.datasets[0].label = biomarkerName !== "Unknown" ? biomarkerName : "Biomarker Value";
+                if (rowName === selectedName) {
+                    const valText = rCells[1].innerText.trim();
+                    // Regex removes units like "mg/dL" or "%" to get just the number
+                    const valNum = parseFloat(valText.replace(/[^\d.-]/g, ''));
                     
-                    // Update Graph Data
-                    // For now, we show one solid point. When you send app.py, we will add real history.
-                    trendChart.data.labels = ['Current Result'];
-                    trendChart.data.datasets[0].data = [currentValue];
-                    
-                    trendChart.update();
+                    if (!isNaN(valNum)) {
+                        historyData.push(valNum);
+                        historyLabels.push(`Record ${historyData.length}`);
+                    }
                 }
             }
+        });
+
+        if (historyData.length > 0 && trendChart) {
+            // UI Feedback: Highlight the active row
+            tableRows.forEach(r => r.style.backgroundColor = 'transparent');
+            selectedRow.style.backgroundColor = 'rgba(0, 86, 179, 0.05)';
+
+            // Update Chart Data
+            trendChart.data.labels = historyLabels;
+            trendChart.data.datasets[0].label = selectedName;
+            trendChart.data.datasets[0].data = historyData;
+            
+            // Adjust scale so single points don't vanish
+            const min = Math.min(...historyData);
+            const max = Math.max(...historyData);
+            trendChart.options.scales.y.suggestedMin = min * 0.9;
+            trendChart.options.scales.y.suggestedMax = max * 1.1;
+
+            trendChart.update();
+        }
+    }
+
+    // 3. Attach Click Listeners
+    tableRows.forEach(row => {
+        row.style.cursor = 'pointer';
+        row.addEventListener('click', function() {
+            updateGraphForBiomarker(this);
         });
     });
 
-    // Auto-click first valid row on load
-    if (tableRows.length > 0 && tableRows[0].querySelectorAll('td').length >= 2) {
-        tableRows[0].click();
+    // 4. Auto-trigger first valid row after a short delay
+    if (tableRows.length > 0) {
+        setTimeout(() => {
+            const firstRow = Array.from(tableRows).find(r => r.querySelectorAll('td').length >= 2);
+            if (firstRow) firstRow.click();
+        }, 400); 
     }
 
-    // 3. UI Fixes (Scroll & Shake)
-    if (resultsGrid || validationBar) {
-        const target = validationBar || resultsGrid;
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-
-    if (validationBar && validationBar.classList.contains('val-invalid')) {
-        validationBar.style.animation = "shake 0.5s cubic-bezier(.36,.07,.19,.97) both";
-    }
-
-    // 4. Form Submission
-    if (uploadForm) {
-        uploadForm.addEventListener('submit', function() {
+    // 5. Loading State for the Analyze Button
+    const uploadForm = document.querySelector('form');
+    const analyzeBtn = document.querySelector('.btn-primary');
+    if (uploadForm && analyzeBtn) {
+        uploadForm.addEventListener('submit', () => {
             analyzeBtn.disabled = true;
-            analyzeBtn.innerHTML = `<span class="loading-spinner">⌛</span> Processing...`;
+            analyzeBtn.innerHTML = `⌛ Processing...`;
         });
     }
-
-    // 5. Necessary CSS for interactions
-    const style = document.createElement('style');
-    style.innerHTML = `
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes shake {
-            10%, 90% { transform: translate3d(-1px, 0, 0); }
-            20%, 80% { transform: translate3d(2px, 0, 0); }
-            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
-            40%, 60% { transform: translate3d(4px, 0, 0); }
-        }
-        .loading-spinner { display: inline-block; animation: spin 2s linear infinite; margin-right: 8px; }
-        #trendTableBody tr:hover { background-color: #f8f9fa !important; }
-    `;
-    document.head.appendChild(style);
 });

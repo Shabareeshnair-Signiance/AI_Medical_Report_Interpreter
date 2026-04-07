@@ -184,7 +184,7 @@
                     <div class="card-body">
                         <div class="trend-grid-layout">
                             <div class="trend-left-panel">
-                                {% set active_list = trend_data if trend_data else trends %}
+                                {% set active_list = trends if trends else trend_data %}
                                 <table class="trend-table">
                                     <thead>
                                         <tr>
@@ -194,10 +194,10 @@
                                         </tr>
                                     </thead>
                                     <tbody id="trendTableBody">
-                                        {% if trends or trend_data %}
-                                            {% for row in (trends or trend_data) %}
+                                        {% if active_list %}
+                                            {% for row in active_list %}
                                             <tr style="cursor: pointer;">
-                                                <td><strong>{{ row.parameter or row.name or row.biomarker or 'Test' }}</strong></td>
+                                                <td><strong>{{ row.parameter or row.name or row.biomarker or row.test_name or 'Biomarker' }}</strong></td>
                                                 <td>{{ row.value or row.result or '0' }}</td>
                                                 <td>
                                                     <span class="status-pill pill-{{ row.status|lower if row.status else 'normal' }}">
@@ -207,7 +207,7 @@
                                             </tr>
                                             {% endfor %}
                                         {% else %}
-                                            <tr><td colspan="3">Awaiting data...</td></tr>
+                                            <tr><td colspan="3" style="text-align: center; padding: 20px;">No trend data available for this report.</td></tr>
                                         {% endif %}
                                     </tbody>
                                 </table>
@@ -219,7 +219,7 @@
                                 </div>
                                 <div class="summary-box">
                                     <h4>Summary</h4>
-                                    <p>{{ trend_insight if trend_insight else "Initial baseline captured. Historical trends will appear after future uploads." }}</p>
+                                    <p>{{ trend_insight if trend_insight else "Analysis complete. Click a biomarker in the table to visualize the current levels." }}</p>
                                 </div>
                             </div>
                         </div>

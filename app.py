@@ -344,7 +344,8 @@ def doctor_dashboard():
                 return render_template(
                     "doctor.html",
                     validation=validation,
-                    trend_data=t_data,           # <--- ADDED THIS
+                    #trends_data = t_data,
+                    trends=t_data,
                     trend_insight=t_insight,
                     clinical_suggestion=c_suggestion,
                     history=past_history,
@@ -360,6 +361,10 @@ def doctor_dashboard():
             
             logger.info("Running Doctor's Clinical Workflow for new/updated report")
             final_output = doctor_app.invoke(input_state)
+
+            # this ensures that even on the first upload we get the data just saved by the agent
+            from storage.medical_history_db import get_trends_for_patient
+            t_data = get_trends_for_patient(validation.get("pid"))
 
             # Fetch fresh history for the UI
             past_history = get_history_for_patient(
@@ -378,7 +383,8 @@ def doctor_dashboard():
                 report=report_data,
                 clinical_suggestion=final_output.get("clinical_suggestion", "N/A"),
                 trend_insight=final_output.get("trend_insight", "N/A"),
-                trends=final_output.get("trends", []),
+                #trends=final_output.get("trends", []),
+                trends=t_data,
                 history=past_history if past_history else [],
                 status="PROCESSED"
             )

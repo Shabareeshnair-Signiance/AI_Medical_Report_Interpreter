@@ -1,5 +1,4 @@
-document.addEventListener('DOMContentLoaded', function() {
-    // We target the rows specifically inside the body to avoid header issues
+document.addEventListener('DOMContentLoaded', function () {
     const tableBody = document.getElementById('trendTableBody');
     const ctx = document.getElementById('trendChart');
     let trendChart;
@@ -8,33 +7,19 @@ document.addEventListener('DOMContentLoaded', function() {
     if (ctx) {
         trendChart = new Chart(ctx, {
             type: 'line',
-            data: {
-                labels: [], 
-                datasets: [{
-                    label: 'Biomarker Level',
-                    data: [],
-                    borderColor: '#0056b3',
-                    backgroundColor: 'rgba(0, 86, 179, 0.1)',
-                    borderWidth: 3,
-                    tension: 0.3,
-                    fill: true,
-                    pointRadius: 6,
-                    pointBackgroundColor: '#0056b3',
-                    pointHoverRadius: 8
-                }]
-            },
+            data: { labels: [], datasets: [] },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
-                    y: { 
-                        beginAtZero: false, 
+                    y: {
+                        beginAtZero: false,
                         grid: { color: 'rgba(0,0,0,0.05)' },
-                        title: { display: true, text: 'Result Value', font: { weight: 'bold' } } 
+                        title: { display: true, text: 'Result Value', font: { weight: 'bold' } }
                     },
-                    x: { 
+                    x: {
                         grid: { display: false },
-                        title: { display: true, text: 'Report Sequence' }
+                        title: { display: true, text: 'Report Date' }
                     }
                 },
                 plugins: {
@@ -45,65 +30,113 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // 2. The Trend Logic
-    function updateGraphForBiomarker(selectedRow) {
-    const cells = selectedRow.querySelectorAll('td');
-    const selectedName = cells[0].innerText.trim();
-    
-    let historyData = [];
-    let historyLabels = [];
-
-    // Filter only rows that match the specific biomarker name clicked
-    const allRows = document.querySelectorAll('#trendTableBody tr');
-    allRows.forEach((r) => {
-        const name = r.querySelectorAll('td')[0].innerText.trim();
-        if (name === selectedName) {
-            const valText = r.querySelectorAll('td')[1].innerText.trim();
-            const valNum = parseFloat(valText.replace(/[^\d.-]/g, ''));
-            
-            if (!isNaN(valNum)) {
-                historyData.push(valNum);
-                historyLabels.push(`Point ${historyData.length}`);
-            }
-        }
-    });
-
-    if (trendChart && historyData.length > 0) {
-        // Visual feedback for selection
-        allRows.forEach(row => row.classList.remove('selected-highlight'));
-        selectedRow.classList.add('selected-highlight');
-
-        trendChart.data.labels = historyLabels;
-        trendChart.data.datasets[0].label = selectedName;
-        trendChart.data.datasets[0].data = historyData;
-        trendChart.update();
+    // 2. Normalize names so "GLUCOSE, FASTING" matches "Glucose, Fasting, Plasma"
+    function normalizeName(name) {
+        return name.toLowerCase()
+                   .replace(/[^a-z0-9\s]/g, '')  // remove punctuation
+                   .replace(/\s+/g, ' ')           // collapse spaces
+                   .trim();
     }
+
+    // 3. Build graph from TRENDS_DATA JSON (not from DOM table rows)
+    function updateGraphForBiomarker(clickedName) {
+    if (!trendChart || !TRENDS_DATA || TRENDS_DATA.length === 0) return;
+
+    const normalizedClick = normalizeName(clickedName);
+
+    const matched = TRENDS_DATA.filter(row =>
+        normalizeName(row.parameter || '').startsWith(normalizedClick.substring(0, 6))
+    );
+
+    if (matched.length === 0) return;
+
+    matched.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    const labels = matched.map((r, i) => r.date ? r.date : `Point ${i + 1}`);
+    const values = matched.map(r => parseFloat(r.value));
+
+    // Parse ref_range like "70.00 - 100.00 mg/dL" or "13.0 - 16.5"
+    let refMin = null;
+    let refMax = null;
+    const refRaw = matched[0]?.ref_range || "";
+    const refMatch = refRaw.match(/([\d.]+)\s*[-–]\s*([\d.]+)/);
+    if (refMatch) {
+        refMin = parseFloat(refMatch[1]);
+        refMax = parseFloat(refMatch[2]);
+    }
+
+    // Build annotation config only if we have valid ref range
+    const annotations = {};
+    if (refMin !== null && refMax !== null) {
+        annotations.refBand = {
+            type: 'box',
+            yMin: refMin,
+            yMax: refMax,
+            backgroundColor: 'rgba(40, 167, 69, 0.08)',
+            borderColor: 'rgba(40, 167, 69, 0.4)',
+            borderWidth: 1,
+            label: {
+                display: true,
+                content: `Normal: ${refMin} – ${refMax}`,
+                position: 'start',
+                color: '#28a745',
+                font: { size: 11 }
+            }
+        };
+    }
+
+    trendChart.data.labels = labels;
+    trendChart.data.datasets = [{
+        label: clickedName,
+        data: values,
+        borderColor: '#0056b3',
+        backgroundColor: 'rgba(0, 86, 179, 0.1)',
+        borderWidth: 3,
+        tension: 0.3,
+        fill: true,
+        pointRadius: 6,
+        pointBackgroundColor: '#0056b3',
+        pointHoverRadius: 8
+    }];
+
+    // Update the annotation config dynamically
+    trendChart.options.plugins.annotation = { annotations };
+    trendChart.update();
+
+    document.querySelectorAll('#trendTableBody tr').forEach(r => r.classList.remove('selected-highlight'));
 }
 
-    // 3. Attach Listeners to dynamic rows
+    // 4. Click listener on table rows
     if (tableBody) {
-        tableBody.addEventListener('click', function(e) {
+        tableBody.addEventListener('click', function (e) {
             const row = e.target.closest('tr');
-            if (row) updateGraphForBiomarker(row);
+            if (!row) return;
+            const cells = row.querySelectorAll('td');
+            if (cells.length < 1) return;
+            const name = cells[0].innerText.trim();
+            row.classList.add('selected-highlight');
+            updateGraphForBiomarker(name);
         });
     }
 
-    // 4. Auto-trigger first row
+    // 5. Auto-trigger first row on load
     setTimeout(() => {
         const firstRow = tableBody?.querySelector('tr');
         if (firstRow && firstRow.querySelectorAll('td').length >= 2) {
-            updateGraphForBiomarker(firstRow);
+            const name = firstRow.querySelectorAll('td')[0].innerText.trim();
+            firstRow.classList.add('selected-highlight');
+            updateGraphForBiomarker(name);
         }
-    }, 500);
+    }, 300);
 
-    // 5. Button Loading State
+    // 6. Button loading state
     const uploadForm = document.querySelector('form');
     const analyzeBtn = document.querySelector('.btn-primary');
     if (uploadForm && analyzeBtn) {
         uploadForm.addEventListener('submit', () => {
             analyzeBtn.disabled = true;
-            analyzeBtn.style.opacity = "0.7";
-            analyzeBtn.innerHTML = `<span>⌛ Analyzing...</span>`;
+            analyzeBtn.style.opacity = '0.7';
+            analyzeBtn.innerHTML = '<span>⌛ Analyzing...</span>';
         });
     }
 });

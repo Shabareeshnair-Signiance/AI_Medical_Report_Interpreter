@@ -6,6 +6,7 @@
     <title>Doctor Clinical Dashboard</title>
     <link rel="stylesheet" href="/design/doctor.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
     <style>
         /* Essential styles for the requested Trend Analysis layout */
         .trend-grid-layout {
@@ -183,7 +184,7 @@
                     </div>
                     <div class="card-body">
                         <div class="trend-grid-layout">
-                            <div class="trend-left-panel">
+                            <div class="trend-left-panel" style="max-height: 320px; overflow-y: auto;">
                                 {% set active_list = trends if trends else trend_data %}
                                 <table class="table">
                                     <thead>
@@ -195,7 +196,7 @@
                                     </thead>
                                     <tbody id="trendTableBody">
                                         {% for row in trends %}
-                                        <tr class="trend-row {% if row.status == 'HIGH' or row.status == 'LOW' %}row-critical{% endif %}" 
+                                        <tr class="trend-row {% if row.status == 'HIGH' %}row-critical{% elif row.status == 'LOW' %}row-low{% else %}row-normal{% endif %}"
                                             data-status="{{ row.status }}">
                                             <td><strong>{{ row.parameter }}</strong></td>
                                             <td>{{ row.result_value }}</td>
@@ -208,12 +209,24 @@
                                 <style>
                                     /* Full row highlight for High/Low status as requested */
                                     .row-critical {
-                                        background-color: rgba(255, 0, 0, 0.1) !important; /* Light red tint for the row */
-                                        border-left: 5px solid red; /* Visual indicator */
+                                        background-color: rgba(220, 53, 69, 0.08) !important;
+                                        border-left: 5px solid #dc3545;
+                                    }
+                                    .row-low {
+                                        background-color: rgba(253, 126, 20, 0.08) !important;
+                                        border-left: 5px solid #fd7e14;
+                                    }
+                                    .row-normal {
+                                        background-color: rgba(40, 167, 69, 0.06) !important;
+                                        border-left: 5px solid #28a745;
                                     }
                                     .trend-row:hover {
                                         cursor: pointer;
-                                        background-color: #f8f9fa;
+                                        background-color: #f0f4ff !important;
+                                    }
+                                    .selected-highlight {
+                                        background-color: #dce8ff !important;
+                                        border-left: 5px solid #0056b3 !important;
                                     }
                                 </style>
                             </div>
@@ -277,6 +290,9 @@
             {% endif %}
         </main>
     </div>
+    <script>
+        const TRENDS_DATA = {{ trends | tojson | safe if trends else '[]' }};
+    </script>
     <script src="/logic/doctor.js"></script>
 </body>
 </html>

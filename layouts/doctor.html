@@ -30,8 +30,6 @@
             background-color: #f8f9fa;
             border-radius: 8px;
             border-left: 4px solid #007bff;
-            max-height: 120px; 
-            overflow: hidden;
         }
         .summary-box p {
             margin: 0;
@@ -244,8 +242,16 @@
                                     <canvas id="trendChart"></canvas>
                                 </div>
                                 <div class="summary-box">
-                                    <h4>Summary</h4>
-                                    <p>{{ trend_insight if trend_insight else "Analysis complete. Click a biomarker in the table to visualize the current levels." }}</p>
+                                    <div class="summary-header" onclick="toggleSummary()" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+                                        <h4 style="margin:0;">Summary</h4>
+                                        <span id="summaryArrow" style="font-size:0.9rem; color:#0056b3;">▼ Show</span>
+                                    </div>
+                                    <div id="summaryContent" style="display:none; margin-top:10px;">
+                                        <div id="summaryParsed"></div>
+                                        <p id="summaryFallback" style="margin:0; font-size:0.95rem; line-height:1.6; display:none;">
+                                            {{ trend_insight if trend_insight else "Analysis complete. Click a biomarker in the table to visualize the current levels." }}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -302,5 +308,8 @@
         const TRENDS_DATA = {{ trends | tojson | safe if trends else '[]' }};
     </script>
     <script src="/logic/doctor.js"></script>
+    <script>
+        const SUMMARY_TEXT = {{ trend_insight | tojson | safe if trend_insight else '""' }};
+    </script>
 </body>
 </html>

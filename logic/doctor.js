@@ -140,3 +140,92 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 });
+
+// SUMMARY PARSER & RENDERER
+
+const SUMMARY_LABELS = [
+    { key: "FINDINGS",      icon: "🔴", color: "#dc3545" },
+    { key: "SIGNIFICANCE",  icon: "🧠", color: "#0056b3" },
+    { key: "BASELINE NOTE", icon: "📌", color: "#6c757d" },
+    { key: "CHANGE",        icon: "📊", color: "#0056b3" },
+    { key: "DIRECTION",     icon: "📈", color: "#28a745" },
+    { key: "ACTION",        icon: "⚡", color: "#fd7e14" }
+];
+
+function parseSummary(text) {
+    if (!text) return null;
+
+    const positions = [];
+    SUMMARY_LABELS.forEach(label => {
+        const idx = text.indexOf(label.key + ":");
+        if (idx !== -1) positions.push({ idx, label });
+    });
+
+    positions.sort((a, b) => a.idx - b.idx);
+    if (positions.length === 0) return null;
+
+    const parts = [];
+    positions.forEach((pos, i) => {
+        const start = pos.idx + pos.label.key.length + 1;
+        const end = i + 1 < positions.length ? positions[i + 1].idx : text.length;
+        const content = text.slice(start, end).trim();
+        parts.push({ label: pos.label, content });
+    });
+
+    return parts;
+}
+
+function renderSummary() {
+    const container = document.getElementById('summaryParsed');
+    const fallback = document.getElementById('summaryFallback');
+    if (!container) return;
+
+    const parts = parseSummary(SUMMARY_TEXT);
+    if (!parts || parts.length === 0) {
+        if (fallback) fallback.style.display = 'block';
+        return;
+    }
+
+    container.innerHTML = parts.map(part => `
+        <div style="
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            padding: 8px 10px;
+            margin-bottom: 6px;
+            background: #ffffff;
+            border-radius: 6px;
+            border-left: 4px solid ${part.label.color};
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        ">
+            <span style="font-size:1.1rem; margin-top:1px;">${part.label.icon}</span>
+            <div>
+                <span style="
+                    font-size: 0.7rem;
+                    font-weight: 800;
+                    text-transform: uppercase;
+                    color: ${part.label.color};
+                    letter-spacing: 0.5px;
+                    display: block;
+                    margin-bottom: 2px;
+                ">${part.label.key}</span>
+                <span style="font-size: 0.9rem; color: #333; line-height: 1.5;">${part.content}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+function toggleSummary() {
+    const content = document.getElementById('summaryContent');
+    const arrow = document.getElementById('summaryArrow');
+    if (!content || !arrow) return;
+
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        arrow.textContent = '▲ Hide';
+        renderSummary();
+    } else {
+        content.style.display = 'none';
+        arrow.textContent = '▼ Show';
+    }
+}

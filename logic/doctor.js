@@ -47,52 +47,38 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 2. The Trend Logic
     function updateGraphForBiomarker(selectedRow) {
-        const cells = selectedRow.querySelectorAll('td');
-        if (cells.length < 2) return;
+    const cells = selectedRow.querySelectorAll('td');
+    const selectedName = cells[0].innerText.trim();
+    
+    let historyData = [];
+    let historyLabels = [];
 
-        // Since we updated doctor.html, cells[0] is now the 'parameter' (e.g., "Glucose")
-        const selectedName = cells[0].innerText.trim();
-        let historyData = [];
-        let historyLabels = [];
-
-        // Scan the table for all instances of this biomarker to create the line
-        const allRows = tableBody.querySelectorAll('tr');
-        allRows.forEach((r, index) => {
-            const rCells = r.querySelectorAll('td');
-            if (rCells.length >= 2) {
-                const rowName = rCells[0].innerText.trim();
-                
-                if (rowName === selectedName) {
-                    const valText = rCells[1].innerText.trim();
-                    // Robust regex: keeps numbers and decimals, ignores units/alphas
-                    const valNum = parseFloat(valText.replace(/[^\d.-]/g, ''));
-                    
-                    if (!isNaN(valNum)) {
-                        historyData.push(valNum);
-                        // Using "Point X" or you could use a date if available in the row
-                        historyLabels.push(`Point ${historyData.length}`);
-                    }
-                }
-            }
-        });
-
-       if (historyData.length > 0 && trendChart) {
-            // 1. Clear highlight from all rows
-            const allRows = tableBody.querySelectorAll('tr');
-            allRows.forEach(r => r.style.backgroundColor = 'transparent');
+    // Filter only rows that match the specific biomarker name clicked
+    const allRows = document.querySelectorAll('#trendTableBody tr');
+    allRows.forEach((r) => {
+        const name = r.querySelectorAll('td')[0].innerText.trim();
+        if (name === selectedName) {
+            const valText = r.querySelectorAll('td')[1].innerText.trim();
+            const valNum = parseFloat(valText.replace(/[^\d.-]/g, ''));
             
-            // 2. Highlight ONLY the clicked row with a distinct color
-            selectedRow.style.backgroundColor = '#e7f1ff'; 
-
-            // 3. Update Chart
-            trendChart.data.labels = historyLabels;
-            trendChart.data.datasets[0].label = `Trend: ${selectedName}`;
-            trendChart.data.datasets[0].data = historyData;
-
-            // 4. Force a quick animation to show it updated
-            trendChart.update('active'); 
+            if (!isNaN(valNum)) {
+                historyData.push(valNum);
+                historyLabels.push(`Point ${historyData.length}`);
+            }
         }
+    });
+
+    if (trendChart && historyData.length > 0) {
+        // Visual feedback for selection
+        allRows.forEach(row => row.classList.remove('selected-highlight'));
+        selectedRow.classList.add('selected-highlight');
+
+        trendChart.data.labels = historyLabels;
+        trendChart.data.datasets[0].label = selectedName;
+        trendChart.data.datasets[0].data = historyData;
+        trendChart.update();
     }
+}
 
     // 3. Attach Listeners to dynamic rows
     if (tableBody) {

@@ -329,24 +329,25 @@ def doctor_dashboard():
                                        validation=validation)
             
             # Helper function logic for Normalization
-            from storage.medical_history_db import get_trends_for_patient
             def get_clean_trends(pid):
+                from storage.medical_history_db import get_trends_for_patient
                 raw_data = get_trends_for_patient(pid)
 
-                if raw_data:
-                    print(f"DEBUG: Database Row Keys -> {raw_data[0].keys()}")
+                if not raw_data:
+                    return []
 
                 for row in raw_data:
-                    name_options = [
-                        row.get("parameter"),
-                        row.get("biomarker"),
-                        row.get("test"),
-                        row.get("test_name"),
-                        row.get("name")
-                    ]
-                    found_name = next((name for name in name_options if name), None)
-                    row["parameter"] = found_name or "Unknown Biomarker"
-                    #row["parameter"] = row.get("test") or row.get("test_name") or "Unknown Biomarker"
+                    # Fix the "Unknown" name issue by checking all possible keys
+                    name_options = [row.get("parameter"), row.get("test"), row.get("biomarker"), row.get("name")]
+                    row["parameter"] = next((name for name in name_options if name), "Unknown Biomarker")
+                    
+                    # Ensure result and reference range are strings for the table
+                    row["result_value"] = row.get("value") or row.get("result") or "N/A"
+                    row["ref_range"] = row.get("reference_range") or row.get("ref_range") or "N/A"
+                    
+                    # Determine status for highlighting
+                    row["status"] = str(row.get("status", "")).upper()
+                    
                 return raw_data
 
             # 3. PHASE 2: DUPLICATE HANDLING

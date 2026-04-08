@@ -76,25 +76,21 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        if (historyData.length > 0 && trendChart) {
-            // UI Feedback: Highlight active row
+       if (historyData.length > 0 && trendChart) {
+            // 1. Clear highlight from all rows
+            const allRows = tableBody.querySelectorAll('tr');
             allRows.forEach(r => r.style.backgroundColor = 'transparent');
-            selectedRow.style.backgroundColor = 'rgba(0, 86, 179, 0.08)';
+            
+            // 2. Highlight ONLY the clicked row with a distinct color
+            selectedRow.style.backgroundColor = '#e7f1ff'; 
 
-            // Update Chart
+            // 3. Update Chart
             trendChart.data.labels = historyLabels;
             trendChart.data.datasets[0].label = `Trend: ${selectedName}`;
             trendChart.data.datasets[0].data = historyData;
-            
-            // Auto-scale Y axis for clarity
-            const min = Math.min(...historyData);
-            const max = Math.max(...historyData);
-            const padding = (max - min) * 0.2 || 1; // Fallback for single data point
-            
-            trendChart.options.scales.y.suggestedMin = min - padding;
-            trendChart.options.scales.y.suggestedMax = max + padding;
 
-            trendChart.update();
+            // 4. Force a quick animation to show it updated
+            trendChart.update('active'); 
         }
     }
 

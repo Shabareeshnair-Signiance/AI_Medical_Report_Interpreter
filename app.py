@@ -333,9 +333,20 @@ def doctor_dashboard():
             def get_clean_trends(pid):
                 raw_data = get_trends_for_patient(pid)
 
+                if raw_data:
+                    print(f"DEBUG: Database Row Keys -> {raw_data[0].keys()}")
+
                 for row in raw_data:
-                    if not row.get("parameter"):
-                        row["parameter"] = row.get("test") or row.get("test_name") or "Unknown Biomarker"
+                    name_options = [
+                        row.get("parameter"),
+                        row.get("biomarker"),
+                        row.get("test"),
+                        row.get("test_name"),
+                        row.get("name")
+                    ]
+                    found_name = next((name for name in name_options if name), None)
+                    row["parameter"] = found_name or "Unknown Biomarker"
+                    #row["parameter"] = row.get("test") or row.get("test_name") or "Unknown Biomarker"
                 return raw_data
 
             # 3. PHASE 2: DUPLICATE HANDLING

@@ -327,6 +327,16 @@ def doctor_dashboard():
                 return render_template("doctor.html", 
                                        error="Could not identify patient in this report.",
                                        validation=validation)
+            
+            # Helper function logic for Normalization
+            from storage.medical_history_db import get_trends_for_patient
+            def get_clean_trends(pid):
+                raw_data = get_trends_for_patient(pid)
+
+                for row in raw_data:
+                    if not row.get("parameter"):
+                        row["parameter"] = row.get("test") or row.get("test_name") or "Unknown Biomarker"
+                return raw_data
 
             # 3. PHASE 2: DUPLICATE HANDLING
             if validation["status"] == "DUPLICATE":
@@ -334,9 +344,9 @@ def doctor_dashboard():
                 
                 # We need to fetch the trend data even for duplicates 
                 # so the table and graph don't stay empty!
-                from storage.medical_history_db import get_trends_for_patient
                 
-                t_data = get_trends_for_patient(validation.get("pid"))
+                #t_data = get_trends_for_patient(validation.get("pid"))
+                t_data = get_clean_trends(validation.get("pid"))
                 t_insight = existing_row["llm_insight"] if existing_row else "N/A"
                 c_suggestion = existing_row["clinical_suggestion"] if existing_row else "N/A"
                 past_history = get_history_for_patient(pid=validation.get("pid"), name=validation.get("patient_name"))
@@ -363,8 +373,7 @@ def doctor_dashboard():
             final_output = doctor_app.invoke(input_state)
 
             # this ensures that even on the first upload we get the data just saved by the agent
-            from storage.medical_history_db import get_trends_for_patient
-            t_data = get_trends_for_patient(validation.get("pid"))
+            t_data = get_clean_trends(validation.get("pid"))
 
             # Fetch fresh history for the UI
             past_history = get_history_for_patient(

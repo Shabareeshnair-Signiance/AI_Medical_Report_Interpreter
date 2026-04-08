@@ -89,13 +89,47 @@ def get_trends_for_patient(pid, name=None):
             test_results = json.loads(row['medical_data']) 
             
             for test in test_results:
+                logger.debug(f"RAW test keys from DB: {list(test.keys())} | DATA: {test}")
+
+                # trying every possible key the agent might use for the name
+                param_name = (
+                    test.get("parameter") or
+                    test.get("test_name") or
+                    test.get("symptom") or
+                    test.get("biomarker") or
+                    test.get("name") or
+                    test.get("test") or
+                    test.get("measurement_name") or
+                    test.get("lab_test") or
+                    test.get("component") or
+                    "Unknown"
+                )
+
+                # Try every possible key your agent might use for the value
+                param_value = (
+                    test.get("value") or
+                    test.get("result") or
+                    test.get("result_value") or
+                    test.get("measurement") or
+                    test.get("reading")
+                )
+
                 trend_list.append({
                     "date": row['report_date'],
-                    "parameter": test.get("parameter") or test.get("test_name") or "Unknown",
-                    "value": test.get("value"),
+                    "parameter": param_name,
+                    "value": param_value,
                     "status": test.get("status", "normal"),
-                    "status_class": test.get("status", "normal").lower()
+                    "status_class": test.get("status", "normal").lower(),
+                    "ref_range": test.get("reference_range") or test.get("ref_range") or "N/A"
                 })
+
+                # trend_list.append({
+                #     "date": row['report_date'],
+                #     "parameter": test.get("parameter") or test.get("test_name") or "Unknown",
+                #     "value": test.get("value"),
+                #     "status": test.get("status", "normal"),
+                #     "status_class": test.get("status", "normal").lower()
+                # })
         
         return trend_list
     except Exception as e:

@@ -14,25 +14,36 @@ class SymlinkAgent:
         lab_results = current_report.get("lab_results", [])
         
         prompt_template = """
-        You are a Clinical Assistant helping a Doctor. Analyze the results for {patient_name}.
-        
-        IMPORTANT: 
-        - Speak about the patient in the third person (e.g., Use "{patient_name}'s" or "The patient's"). 
-        - DO NOT use "You" or "Your" to refer to the doctor.
-        - Keep the language simple but professional.
+You are a Clinical Decision Support Assistant helping a busy doctor.
+Analyze the lab results for {patient_name} and respond ONLY in this exact format with no markdown symbols like ** or ##:
 
-        DATA:
-        - Results: {lab_json}
-        - Changes: {trends_json}
+URGENCY: [URGENT / MONITOR / ROUTINE] - one line reason why
 
-        TASK (STRICT BREVITY):
-        1. THE CONNECTION: What is the main link between these results for {patient_name}?
-        2. MAIN GUESS: What is the most likely clinical reason?
-        3. OTHER POSSIBILITIES: List 2 other things to consider.
-        4. WHAT TO DO NEXT: List 2-3 simple follow-up steps for the doctor.
+SYSTEM AFFECTED: [e.g. Endocrine System / Hepatic / Renal / Hematologic]
 
-        Keep the total response under 150 words.
-        """
+MOST LIKELY: [Top diagnosis] - [confidence: High/Medium/Low]
+ALTERNATIVES: [2nd possibility] | [3rd possibility]
+
+TREND: [Improving / Worsening / Stable / Baseline only]
+KEY CHANGE: [e.g. Glucose dropped 245 to 185 - still 85% above normal range]
+
+NEXT STEPS:
+1. [Specific test to order]
+2. [Specific test to order]
+3. [Action or referral]
+
+DOCTOR NOTE: One sentence the doctor should tell the patient today.
+
+DATA:
+- Results: {lab_json}
+- Trend Changes: {trends_json}
+
+RULES:
+- Never use **, ##, or any markdown symbols
+- Be direct and specific, not vague
+- Use actual numbers from the data
+- Keep entire response under 180 words
+"""
 
         prompt = PromptTemplate(
             input_variables=["patient_name", "lab_json", "trends_json"], 

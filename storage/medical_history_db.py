@@ -57,30 +57,37 @@ def generate_internal_uid(name, age=None, dob=None, report_date_str=None):
         logger.error(f"UID Generation failed: {e}")
         return name.lower().strip().replace(" ", "")
     
-def get_trends_for_patient(pid):
+def get_trends_for_patient(pid, name=None):
     """Fetches all historical biomarker data for a specific patient to build the trend graph."""
     try:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
-        # FIX: Changed 'extracted_data' to 'medical_data' to match your schema
-        cursor.execute("""
+        # New: Setup name variables for fallback searching
+        clean_name = name.lower().strip() if name else None
+        fuzzy_search = f"%{clean_name}%" if clean_name else None
+
+        # New: Updated query to match the robust logic from get_history_for_patient
+        query = """
             SELECT report_date, medical_data 
             FROM patient_reports 
             WHERE patient_id = ? 
+               OR LOWER(patient_name) = ? 
+               OR patient_id = (SELECT patient_id FROM patient_reports WHERE LOWER(patient_name) LIKE ? LIMIT 1)
             ORDER BY report_date ASC
-        """, (str(pid),))
+        """
+        
+        # Pass the variables into the query
+        cursor.execute(query, (str(pid), clean_name, fuzzy_search))
         
         rows = cursor.fetchall()
         conn.close()
 
         trend_list = []
         for row in rows:
-            # medical_data is a JSON list of dictionaries
             test_results = json.loads(row['medical_data']) 
             
-            # Since lab_results is a LIST, we loop through it differently
             for test in test_results:
                 trend_list.append({
                     "date": row['report_date'],

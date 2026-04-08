@@ -185,32 +185,37 @@
                         <div class="trend-grid-layout">
                             <div class="trend-left-panel">
                                 {% set active_list = trends if trends else trend_data %}
-                                <table class="trend-table">
+                                <table class="table">
                                     <thead>
                                         <tr>
                                             <th>Biomarker</th>
                                             <th>Result</th>
-                                            <th>Status</th>
+                                            <th>Ref-Range</th>
                                         </tr>
                                     </thead>
                                     <tbody id="trendTableBody">
-                                        {% if trends %}
-                                            {% for row in trends %}
-                                            <tr style="cursor: pointer;">
-                                                <td><strong>{{ row.parameter }}</strong></td>
-                                                <td>{{ row.value or row.result or '0' }}</td>
-                                                <td>
-                                                    <span class="status-pill {{ row.status|lower if row.status else 'normal' }}">
-                                                        {{ row.status or 'Normal' }}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                            {% endfor %}
-                                        {% else %}
-                                            <tr><td colspan="3" style="text-align: center; padding: 20px;">No trend data available. Upload a report to begin.</td></tr>
-                                        {% endif %}
+                                        {% for row in trends %}
+                                        <tr class="trend-row {% if row.status == 'HIGH' or row.status == 'LOW' %}row-critical{% endif %}" 
+                                            data-status="{{ row.status }}">
+                                            <td><strong>{{ row.parameter }}</strong></td>
+                                            <td>{{ row.result_value }}</td>
+                                            <td>{{ row.ref_range }}</td>
+                                        </tr>
+                                        {% endfor %}
                                     </tbody>
                                 </table>
+
+                                <style>
+                                    /* Full row highlight for High/Low status as requested */
+                                    .row-critical {
+                                        background-color: rgba(255, 0, 0, 0.1) !important; /* Light red tint for the row */
+                                        border-left: 5px solid red; /* Visual indicator */
+                                    }
+                                    .trend-row:hover {
+                                        cursor: pointer;
+                                        background-color: #f8f9fa;
+                                    }
+                                </style>
                             </div>
 
                             <div class="trend-right-panel">

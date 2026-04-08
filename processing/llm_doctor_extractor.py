@@ -137,6 +137,37 @@ def llm_doctor_extractor(report_text, file_path=None):
                 # Cleanup Test Names (Removes extra colons or 'Investigation' labels)
                 item["test"] = item["test"].replace("Investigation:", "").strip()
 
+                # FIX 1: Add "parameter" key so DB reader never falls back to "Unknown"
+                item["parameter"] = item["test"]
+
+                # FIX 2: Recalculate status using Python math, overriding any LLM mistake
+                try:
+                    val = float(item.get("value", ""))
+                    ref = str(item.get("reference_range", ""))
+                    ref_match = re.search(r"([\d.]+)\s*[-–]\s*([\d.]+)", ref)
+
+                    if ref_match:
+                        ref_min = float(ref_match.group(1))
+                        ref_max = float(ref_match.group(2))
+
+                        if val < ref_min:
+                            item["status"] = "LOW"
+                        elif val > ref_max:
+                            item["status"] = "HIGH"
+                        else:
+                            item["status"] = "NORMAL"
+                    # If format is "<1.0" style
+                    elif re.match(r"<\s*([\d.]+)", ref):
+                        upper = float(re.match(r"<\s*([\d.]+)", ref).group(1))
+                        item["status"] = "HIGH" if val >= upper else "NORMAL"
+                    elif re.match(r">\s*([\d.]+)", ref):
+                        lower = float(re.match(r">\s*([\d.]+)", ref).group(1))
+                        item["status"] = "LOW" if val <= lower else "NORMAL"
+
+                except (ValueError, TypeError):
+                    # If value isn't numeric, keep whatever LLM assigned
+                    pass
+
         logger.info("LLM Extraction Successful")
 
         return data

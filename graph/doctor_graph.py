@@ -146,29 +146,29 @@ workflow.add_edge("db_saver", END)
 app = workflow.compile()
 
 # --- 4. Testing Code (Keep as requested) ---
-if __name__ == "__main__":
-    init_history_database()
+# if __name__ == "__main__":
+#     init_history_database()
 
-    # Replace with a real PDF path in your project to test
-    input_state = {
-        "file_path": "data/uploads/platelet_report.pdf" 
-    }
+#     # Replace with a real PDF path in your project to test
+#     input_state = {
+#         "file_path": "data/uploads/platelet_report.pdf" 
+#     }
 
-    logger.info("Starting LangGraph Medical Workflow")
-    try:
-        final_output = app.invoke(input_state)
+#     logger.info("Starting LangGraph Medical Workflow")
+#     try:
+#         final_output = app.invoke(input_state)
 
-        print("\n" + "=".center(60, "="))
-        print(f"FINAL REPORT FOR: {final_output.get('current_report', {}).get('patient_name', 'Unknown')}")
-        print(f"PATIENT ID: {final_output.get('current_report', {}).get('pid', 'N/A')}")
-        print("=".center(60, "="))
+#         print("\n" + "=".center(60, "="))
+#         print(f"FINAL REPORT FOR: {final_output.get('current_report', {}).get('patient_name', 'Unknown')}")
+#         print(f"PATIENT ID: {final_output.get('current_report', {}).get('pid', 'N/A')}")
+#         print("=".center(60, "="))
         
-        suggestion = final_output.get('clinical_suggestion', 'No suggestion available.')
-        insight = final_output.get('trend_insight', 'No trend insight available.')
+#         suggestion = final_output.get('clinical_suggestion', 'No suggestion available.')
+#         insight = final_output.get('trend_insight', 'No trend insight available.')
 
-        print(f"\n[CLINICAL SUGGESTION]\n{suggestion}")
-        print(f"\n[TREND ANALYSIS]\n{insight}")
-        print("=".center(60, "="))
+#         print(f"\n[CLINICAL SUGGESTION]\n{suggestion}")
+#         print(f"\n[TREND ANALYSIS]\n{insight}")
+#         print("=".center(60, "="))
         
-    except Exception as e:
-        logger.error(f"Test Execution Failed: {e}")
+#     except Exception as e:
+#         logger.error(f"Test Execution Failed: {e}")

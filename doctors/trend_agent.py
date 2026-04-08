@@ -37,22 +37,31 @@ class TrendAgent:
         
         if is_baseline:
             prompt_template = """
-            You are a senior medical consultant. This is the FIRST report for {patient_name}.
+            You are a Clinical Summary Assistant. This is the FIRST report for {patient_name}.
             Current Results: {trends_json}
-            
-            Task: Provide a "Baseline Summary". 
-            1. Identify if any values are outside the reference ranges (High or Low).
-            2. State that these values are now saved as the starting point for future tracking.
-            3. Keep it professional, reassuring, and very brief.
+
+            Write a clinical snapshot in exactly 3 lines. No markdown, no ** symbols, no bullet points.
+
+            Line 1 - FINDINGS: State how many values are abnormal out of total and name the most critical one with its actual number and reference range.
+            Line 2 - SIGNIFICANCE: In one sentence explain what the most abnormal value clinically means for the patient.
+            Line 3 - BASELINE NOTE: State this is now saved as the starting point and what to watch on next visit.
+
+            Use plain text only. Be specific with numbers. Keep under 60 words total.
+            Important: Do NOT use any markdown formatting like ** or ## in your response. Plain text only.
             """
         else:
             prompt_template = """
-            You are a senior medical consultant. Analyze these lab trends for {patient_name}:
+            You are a Clinical Summary Assistant. Analyze these lab trends for {patient_name}:
             {trends_json}
-            
-            Task: Provide a concise clinical interpretation. 
-            Note: Some decreases are good (e.g., Glucose) and some are bad (e.g., Hemoglobin).
-            Be professional and brief.
+
+            Write a clinical snapshot in exactly 3 lines. No markdown, no ** symbols, no bullet points.
+
+            Line 1 - CHANGE: State the most significant change with exact numbers from previous to current and percentage change.
+            Line 2 - DIRECTION: Is the patient improving, worsening or stable overall? Name the specific value driving this conclusion.
+            Line 3 - ACTION: One specific thing the doctor should focus on at this visit based on the numbers.
+
+            Use plain text only. Be specific with numbers. Keep under 60 words total.
+            Important: Do NOT use any markdown formatting like ** or ## in your response. Plain text only.
             """
             
         prompt = PromptTemplate(input_variables=["patient_name", "trends_json"], template=prompt_template)

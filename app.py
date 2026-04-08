@@ -329,23 +329,19 @@ def doctor_dashboard():
                                        validation=validation)
             
             # Helper function logic for Normalization
-            def get_clean_trends(pid):
+            def get_clean_trends(pid, patient_name):
                 from storage.medical_history_db import get_trends_for_patient
-                raw_data = get_trends_for_patient(pid)
+                raw_data = get_trends_for_patient(pid, patient_name)
 
                 if not raw_data:
                     return []
 
                 for row in raw_data:
-                    # Fix the "Unknown" name issue by checking all possible keys
                     name_options = [row.get("parameter"), row.get("test"), row.get("biomarker"), row.get("name")]
                     row["parameter"] = next((name for name in name_options if name), "Unknown Biomarker")
                     
-                    # Ensure result and reference range are strings for the table
                     row["result_value"] = row.get("value") or row.get("result") or "N/A"
                     row["ref_range"] = row.get("reference_range") or row.get("ref_range") or "N/A"
-                    
-                    # Determine status for highlighting
                     row["status"] = str(row.get("status", "")).upper()
                     
                 return raw_data
@@ -358,7 +354,7 @@ def doctor_dashboard():
                 # so the table and graph don't stay empty!
                 
                 #t_data = get_trends_for_patient(validation.get("pid"))
-                t_data = get_clean_trends(validation.get("pid"))
+                t_data = get_clean_trends(validation.get("pid"), validation.get("patient_name"))
                 t_insight = existing_row["llm_insight"] if existing_row else "N/A"
                 c_suggestion = existing_row["clinical_suggestion"] if existing_row else "N/A"
                 past_history = get_history_for_patient(pid=validation.get("pid"), name=validation.get("patient_name"))
@@ -385,7 +381,7 @@ def doctor_dashboard():
             final_output = doctor_app.invoke(input_state)
 
             # this ensures that even on the first upload we get the data just saved by the agent
-            t_data = get_clean_trends(validation.get("pid"))
+            t_data = get_clean_trends(validation.get("pid"), validation.get("patient_name"))
 
             # Fetch fresh history for the UI
             past_history = get_history_for_patient(

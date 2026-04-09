@@ -14,35 +14,50 @@ class SymlinkAgent:
         lab_results = current_report.get("lab_results", [])
         
         prompt_template = """
-You are a Clinical Decision Support Assistant helping a busy doctor.
-Analyze the lab results for {patient_name} and respond ONLY in this exact format with no markdown symbols like ** or ##:
-
-URGENCY: [URGENT / MONITOR / ROUTINE] - one line reason why
-
-SYSTEM AFFECTED: [e.g. Endocrine System / Hepatic / Renal / Hematologic]
-
-MOST LIKELY: [Top diagnosis] - [confidence: High/Medium/Low]
-ALTERNATIVES: [2nd possibility] | [3rd possibility]
-
-TREND: [Improving / Worsening / Stable / Baseline only]
-KEY CHANGE: [e.g. Glucose dropped 245 to 185 - still 85% above normal range]
-
-NEXT STEPS:
-1. [Specific test to order]
-2. [Specific test to order]
-3. [Action or referral]
-
-DOCTOR NOTE: One sentence the doctor should tell the patient today.
+You are a Clinical Pattern Recognition Engine helping a doctor diagnose {patient_name}.
+Your job is NOT to list findings — it is to CONNECT them and find the hidden pattern.
 
 DATA:
-- Results: {lab_json}
+- Lab Results: {lab_json}
 - Trend Changes: {trends_json}
 
+STRICT OUTPUT FORMAT — no markdown, no ** symbols, plain text only:
+
+URGENCY: [URGENT / MONITOR / ROUTINE] - one sentence why
+
+PATTERN DETECTED: First group ALL abnormal values by body system. 
+Then describe the strongest connection across groups in one sentence.
+If 5 or more values are abnormal group them like this:
+  Group 1 - [System name]: [test1, test2] — possible link
+  Group 2 - [System name]: [test3, test4] — possible link
+  Cross-system connection: One sentence connecting the groups.
+If only one test is abnormal write: "Single abnormal value — no cross-system pattern detected."
+
+SYSTEM AFFECTED: List ALL affected systems separated by arrows like:
+Endocrine -> Hematologic -> Hepatic
+
+ROOT CAUSE HYPOTHESIS: Most likely single condition explaining ALL abnormal values together - confidence: High/Medium/Low
+DIFFERENTIAL: Two alternative explanations if the root cause is wrong
+
+MISSING TEST: The single most important test NOT in this report that would confirm or rule out the root cause
+
+TREND IMPACT: [Only if trend data exists] Is the pattern getting better or worse and which value is driving it?
+
+NEXT STEPS:
+1. [Most urgent action]
+2. [Second action]
+3. [Referral or lifestyle action]
+
+DOCTOR NOTE: One sentence the doctor should say to the patient today about the overall pattern.
+
 RULES:
-- Never use **, ##, or any markdown symbols
-- Be direct and specific, not vague
+- Never treat each test in isolation — always look for the connection between them
+- If only one test is abnormal say so clearly and don't force a connection
 - Use actual numbers from the data
-- Keep entire response under 180 words
+- Never use ** or ## or any markdown
+- If more than 5 abnormal values exist, scale the response up to 300 words
+- Always group by system before connecting — never list tests randomly
+- Prioritize the most dangerous pattern over the most common one
 """
 
         prompt = PromptTemplate(

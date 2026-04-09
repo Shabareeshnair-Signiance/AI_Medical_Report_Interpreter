@@ -38,75 +38,144 @@ document.addEventListener('DOMContentLoaded', function () {
                    .trim();
     }
 
-    // 3. Build graph from TRENDS_DATA JSON (not from DOM table rows)
+    // 3. Parse ref range — handles ALL medical formats
+    function parseRefRange(refRaw, values) {
+        let refMin = null;
+        let refMax = null;
+        let labelText = null;
+
+        if (!refRaw || refRaw === 'N/A' || refRaw.trim() === '') {
+            return { refMin, refMax, labelText };
+        }
+
+        const clean = refRaw.trim();
+
+        // Format 1: "70 - 100" or "70 – 100" or "70.00 - 100.00 mg/dL"
+        const rangeMatch = clean.match(/([\d.]+)\s*[-–]\s*([\d.]+)/);
+        if (rangeMatch) {
+            refMin = parseFloat(rangeMatch[1]);
+            refMax = parseFloat(rangeMatch[2]);
+            labelText = `Normal: ${refMin} – ${refMax}`;
+            return { refMin, refMax, labelText };
+        }
+
+        // Format 2: "< 200" or "<200" or "< 200.00 mg/dL"
+        const lessThanMatch = clean.match(/^[<≤]\s*([\d.]+)/);
+        if (lessThanMatch) {
+            refMin = 0;
+            refMax = parseFloat(lessThanMatch[1]);
+            labelText = `Normal: < ${refMax}`;
+            return { refMin, refMax, labelText };
+        }
+
+        // Format 3: "> 40" or ">40" or "> 40.00"
+        const greaterThanMatch = clean.match(/^[>≥]\s*([\d.]+)/);
+        if (greaterThanMatch) {
+            refMin = parseFloat(greaterThanMatch[1]);
+            const dataMax = values.length > 0 ? Math.max(...values) : refMin * 2;
+            refMax = Math.max(dataMax * 1.5, refMin * 2);
+            labelText = `Normal: > ${refMin}`;
+            return { refMin, refMax, labelText };
+        }
+
+        // Format 4: "Up to 200" or "Upto 150"
+        const upToMatch = clean.match(/up\s*to\s*([\d.]+)/i);
+        if (upToMatch) {
+            refMin = 0;
+            refMax = parseFloat(upToMatch[1]);
+            labelText = `Normal: Up to ${refMax}`;
+            return { refMin, refMax, labelText };
+        }
+
+        // Format 5: "0 - 6" written as "00 - 06" (leading zeros)
+        const leadingZeroMatch = clean.match(/^(0\d*)\s*[-–]\s*(0\d*)/);
+        if (leadingZeroMatch) {
+            refMin = parseFloat(leadingZeroMatch[1]);
+            refMax = parseFloat(leadingZeroMatch[2]);
+            labelText = `Normal: ${refMin} – ${refMax}`;
+            return { refMin, refMax, labelText };
+        }
+
+        // Format 6: Single number like "< 1.0" written as "<1.0"
+        const singleLessMatch = clean.match(/^<\s*([\d.]+)/);
+        if (singleLessMatch) {
+            refMin = 0;
+            refMax = parseFloat(singleLessMatch[1]);
+            labelText = `Normal: < ${refMax}`;
+            return { refMin, refMax, labelText };
+        }
+
+        return { refMin, refMax, labelText };
+    }
+
+    // 4. Build graph from TRENDS_DATA JSON (not from DOM table rows)
     function updateGraphForBiomarker(clickedName) {
-    if (!trendChart || !TRENDS_DATA || TRENDS_DATA.length === 0) return;
+        if (!trendChart || !TRENDS_DATA || TRENDS_DATA.length === 0) return;
 
-    const normalizedClick = normalizeName(clickedName);
+        const normalizedClick = normalizeName(clickedName);
 
-    const matched = TRENDS_DATA.filter(row =>
-        normalizeName(row.parameter || '').startsWith(normalizedClick.substring(0, 6))
-    );
+        const matched = TRENDS_DATA.filter(row =>
+            normalizeName(row.parameter || '').startsWith(normalizedClick.substring(0, 6))
+        );
 
-    if (matched.length === 0) return;
+        if (matched.length === 0) return;
 
-    matched.sort((a, b) => new Date(a.date) - new Date(b.date));
+        matched.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    const labels = matched.map((r, i) => r.date ? r.date : `Point ${i + 1}`);
-    const values = matched.map(r => parseFloat(r.value));
+        const labels = matched.map((r, i) => r.date ? r.date : `Point ${i + 1}`);
 
-    // Parse ref_range like "70.00 - 100.00 mg/dL" or "13.0 - 16.5"
-    let refMin = null;
-    let refMax = null;
-    const refRaw = matched[0]?.ref_range || "";
-    const refMatch = refRaw.match(/([\d.]+)\s*[-–]\s*([\d.]+)/);
-    if (refMatch) {
-        refMin = parseFloat(refMatch[1]);
-        refMax = parseFloat(refMatch[2]);
+        // FIX: Filter out non-numeric values like "Positive", "Reactive"
+        const values = matched
+            .map(r => parseFloat(r.value))
+            .filter(v => !isNaN(v));
+
+        if (values.length === 0) return;
+
+        const refRaw = matched[0]?.ref_range || "";
+        const { refMin, refMax, labelText } = parseRefRange(refRaw, values);
+
+        // Build annotation config only if we have valid ref range
+        const annotations = {};
+        if (refMin !== null && refMax !== null && labelText) {
+            annotations.refBand = {
+                type: 'box',
+                yMin: refMin,
+                yMax: refMax,
+                backgroundColor: 'rgba(40, 167, 69, 0.08)',
+                borderColor: 'rgba(40, 167, 69, 0.4)',
+                borderWidth: 1,
+                label: {
+                    display: true,
+                    content: labelText,
+                    position: 'start',
+                    color: '#28a745',
+                    font: { size: 11 }
+                }
+            };
+        }
+
+        // FIX: Remove highlight BEFORE updating chart
+        document.querySelectorAll('#trendTableBody tr').forEach(r => r.classList.remove('selected-highlight'));
+
+        trendChart.data.labels = labels;
+        trendChart.data.datasets = [{
+            label: clickedName,
+            data: values,
+            borderColor: '#0056b3',
+            backgroundColor: 'rgba(0, 86, 179, 0.1)',
+            borderWidth: 3,
+            tension: 0.3,
+            fill: true,
+            pointRadius: 6,
+            pointBackgroundColor: '#0056b3',
+            pointHoverRadius: 8
+        }];
+
+        trendChart.options.plugins.annotation = { annotations };
+        trendChart.update();
     }
 
-    // Build annotation config only if we have valid ref range
-    const annotations = {};
-    if (refMin !== null && refMax !== null) {
-        annotations.refBand = {
-            type: 'box',
-            yMin: refMin,
-            yMax: refMax,
-            backgroundColor: 'rgba(40, 167, 69, 0.08)',
-            borderColor: 'rgba(40, 167, 69, 0.4)',
-            borderWidth: 1,
-            label: {
-                display: true,
-                content: `Normal: ${refMin} – ${refMax}`,
-                position: 'start',
-                color: '#28a745',
-                font: { size: 11 }
-            }
-        };
-    }
-
-    trendChart.data.labels = labels;
-    trendChart.data.datasets = [{
-        label: clickedName,
-        data: values,
-        borderColor: '#0056b3',
-        backgroundColor: 'rgba(0, 86, 179, 0.1)',
-        borderWidth: 3,
-        tension: 0.3,
-        fill: true,
-        pointRadius: 6,
-        pointBackgroundColor: '#0056b3',
-        pointHoverRadius: 8
-    }];
-
-    // Update the annotation config dynamically
-    trendChart.options.plugins.annotation = { annotations };
-    trendChart.update();
-
-    document.querySelectorAll('#trendTableBody tr').forEach(r => r.classList.remove('selected-highlight'));
-}
-
-    // 4. Click listener on table rows
+    // 5. Click listener on table rows
     if (tableBody) {
         tableBody.addEventListener('click', function (e) {
             const row = e.target.closest('tr');
@@ -119,7 +188,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // 5. Auto-trigger first row on load
+    // 6. Auto-trigger first row on load
     setTimeout(() => {
         const firstRow = tableBody?.querySelector('tr');
         if (firstRow && firstRow.querySelectorAll('td').length >= 2) {
@@ -129,7 +198,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }, 300);
 
-    // 6. Button loading state
+    // 7. Button loading state
     const uploadForm = document.querySelector('form');
     const analyzeBtn = document.querySelector('.btn-primary');
     if (uploadForm && analyzeBtn) {
@@ -141,7 +210,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
+// ============================================
 // SUMMARY PARSER & RENDERER
+// ============================================
 
 const SUMMARY_LABELS = [
     { key: "FINDINGS",      icon: "🔴", color: "#dc3545" },
@@ -230,13 +301,17 @@ function toggleSummary() {
     }
 }
 
+// ============================================
+// HISTORY ROW EXPAND / COLLAPSE
+// ============================================
+
 function toggleHistoryRow(index) {
     const detailRow = document.getElementById('historyDetail' + index);
     const arrow = document.getElementById('historyArrow' + index);
     if (!detailRow || !arrow) return;
 
     const isOpen = detailRow.classList.contains('open');
-    
+
     // Close all other open rows first
     document.querySelectorAll('.history-detail-row.open').forEach(row => {
         row.classList.remove('open');

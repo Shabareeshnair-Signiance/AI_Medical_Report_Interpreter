@@ -168,10 +168,12 @@ class TrendAgent:
                 for item in current_report.get('lab_results', [])
             ]
 
+        has_comparison = any(t.get("previous") and t.get("previous") != "N/A" for t in trends)
+
         insight = self._generate_llm_insight(
             patient_name, 
             current_report.get('lab_results', []), 
-            is_baseline=(not trends or "previous" in str(trends))
+            is_baseline=not has_comparison
         )
 
         return {

@@ -236,7 +236,7 @@
                                     }
                                 </style>
                             </div>
-
+                            
                             <div class="trend-right-panel">
                                 <div class="chart-wrapper">
                                     <canvas id="trendChart"></canvas>
@@ -256,6 +256,37 @@
                             </div>
                         </div>
                     </div>
+
+                        <!-- PREVIOUS TESTS SECTION -->
+                         
+                        {% if previous_tests %}
+                        <div style="margin-top:20px; border-top:2px dashed #dee2e6; padding-top:15px; padding-left:25px; padding-right:25px;">
+                            <p style="font-size:0.78rem; font-weight:700; color:#6c757d; text-transform:uppercase; margin:0 0 10px 0; letter-spacing:0.5px;">
+                                📋 Previously Tested — Not in Current Report
+                            </p>
+                            <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+                                <thead>
+                                    <tr style="background:#f1f3f5;">
+                                        <th style="padding:8px 12px; color:#495057; text-align:left;">Biomarker</th>
+                                        <th style="padding:8px 12px; color:#495057; text-align:left;">Last Value</th>
+                                        <th style="padding:8px 12px; color:#495057; text-align:left;">Ref-Range</th>
+                                        <th style="padding:8px 12px; color:#495057; text-align:left;">Last Tested</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for row in previous_tests %}
+                                    <tr style="border-bottom:1px solid #f0f0f0;">
+                                        <td style="padding:8px 12px; color:#555;">{{ row.parameter }}</td>
+                                        <td style="padding:8px 12px; color:#555;">{{ row.result_value }}</td>
+                                        <td style="padding:8px 12px; color:#555;">{{ row.ref_range }}</td>
+                                        <td style="padding:8px 12px; color:#adb5bd; font-size:0.8rem;">{{ row.date }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% endif %}
+
                 </section>
 
                 {% if clinical_suggestion %}

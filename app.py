@@ -329,12 +329,12 @@ def doctor_dashboard():
                                        validation=validation)
             
             # Helper function logic for Normalization
-            def get_clean_trends(pid, patient_name, current_date=None):
+            def get_clean_trends(pid, patient_name, current_date=None, current_tests = None):
                 from storage.medical_history_db import get_trends_for_patient
                 raw_data = get_trends_for_patient(pid, patient_name)
 
                 if not raw_data:
-                    return [], []
+                    return [], [], []
 
                 for row in raw_data:
                     name_options = [row.get("parameter"), row.get("test"), row.get("biomarker"), row.get("name")]
@@ -356,9 +356,34 @@ def doctor_dashboard():
                 else:
                     latest_date = max(row.get("date", "") for row in raw_data)
 
-                current_only = [row for row in raw_data if row.get("date") == latest_date]
+                # Current test name fetch
+                if current_tests:
+                    # Filter by actual test names from uploaded report
+                    current_test_names = set(t.lower().strip() for t in current_tests)
+                    current_only = [
+                        row for row in raw_data
+                        if row.get("parameter", "").lower().strip() in current_test_names
+                    ]
+                else:
+                    current_only = [row for row in raw_data if row.get("date") == latest_date]
 
-                return current_only, raw_data
+                # Get current test names for comparison
+                current_names = set(row.get("parameter", "").lower().strip() for row in current_only)
+
+                # Previous tests = not in current date AND name not in current report
+                previous_only = [
+                    row for row in raw_data
+                    if row.get("date") != latest_date
+                    and row.get("parameter", "").lower().strip() not in current_names
+                ]
+
+                # Deduplicate previous_only — keep only latest occurrence of each test
+                seen = {}
+                for row in sorted(previous_only, key=lambda x: x.get("date", "")):
+                    seen[row.get("parameter", "").lower().strip()] = row
+                previous_only = list(seen.values())
+
+                return current_only, raw_data, previous_only
 
             # 3. PHASE 2: DUPLICATE HANDLING
             if validation["status"] == "DUPLICATE":
@@ -368,7 +393,9 @@ def doctor_dashboard():
                 # so the table and graph don't stay empty!
                 
                 #t_data = get_trends_for_patient(validation.get("pid"))
-                t_data, all_trends = get_clean_trends(validation.get("pid"), validation.get("patient_name"), validation.get("report_date"))
+                existing = validation.get("existing_analysis")
+                curr_tests = [t.get("test") or t.get("parameter") for t in (existing.get("lab_results", []) if existing and isinstance(existing, dict) else [])]
+                t_data, all_trends, prev_tests = get_clean_trends(validation.get("pid"), validation.get("patient_name"), validation.get("report_date"), curr_tests)
                 t_insight = existing_row["llm_insight"] if existing_row else "N/A"
                 c_suggestion = existing_row["clinical_suggestion"] if existing_row else "N/A"
                 past_history = get_history_for_patient(pid=validation.get("pid"), name=validation.get("patient_name"))
@@ -379,6 +406,7 @@ def doctor_dashboard():
                     #trends_data = t_data,
                     trends=t_data,
                     all_trends = all_trends,
+                    previous_tests = prev_tests,
                     trend_insight=t_insight,
                     clinical_suggestion=c_suggestion,
                     history=past_history,
@@ -396,7 +424,8 @@ def doctor_dashboard():
             final_output = doctor_app.invoke(input_state)
 
             # this ensures that even on the first upload we get the data just saved by the agent
-            t_data, all_trends = get_clean_trends(validation.get("pid"), validation.get("patient_name"), validation.get("report_date"))
+            curr_tests = [t.get("test") or t.get("parameter") for t in final_output.get("current_report", {}).get("lab_results", [])]
+            t_data, all_trends, prev_tests = get_clean_trends(validation.get("pid"), validation.get("patient_name"), validation.get("report_date"), curr_tests)
 
             # Fetch fresh history for the UI
             past_history = get_history_for_patient(
@@ -418,6 +447,7 @@ def doctor_dashboard():
                 #trends=final_output.get("trends", []),
                 trends=t_data,
                 all_trends = all_trends,
+                previous_tests=prev_tests,
                 history=past_history if past_history else [],
                 status="PROCESSED"
             )

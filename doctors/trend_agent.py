@@ -172,7 +172,7 @@ class TrendAgent:
 
         insight = self._generate_llm_insight(
             patient_name, 
-            current_report.get('lab_results', []), 
+            trends if has_comparison else current_report.get('lab_results', []), 
             is_baseline=not has_comparison
         )
 

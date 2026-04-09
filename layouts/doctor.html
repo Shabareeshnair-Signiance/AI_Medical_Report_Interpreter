@@ -258,7 +258,7 @@
                     </div>
 
                         <!-- PREVIOUS TESTS SECTION -->
-                         
+
                         {% if previous_tests %}
                         <div style="margin-top:20px; border-top:2px dashed #dee2e6; padding-top:15px; padding-left:25px; padding-right:25px;">
                             <p style="font-size:0.78rem; font-weight:700; color:#6c757d; text-transform:uppercase; margin:0 0 10px 0; letter-spacing:0.5px;">
@@ -296,7 +296,8 @@
                         <h2>Clinical Detective Suggestion</h2>
                     </div>
                     <div class="card-body">
-                        <p>{{ clinical_suggestion | replace('\n', '<br>') | safe }}</p>
+                        <div id="clinicalParsed"></div>
+                        <p id="clinicalFallback" style="display:none;">{{ clinical_suggestion | replace('\n', '<br>') | safe }}</p>
                     </div>
                 </section>
                 {% endif %}
@@ -429,6 +430,9 @@
     </div>
     <script>
         const TRENDS_DATA = {{ all_trends | tojson | safe if all_trends else '[]' }};
+    </script>
+    <script>
+        const CLINICAL_TEXT = {{ clinical_suggestion | tojson | safe if clinical_suggestion else '""' }};
     </script>
     <script src="/logic/doctor.js"></script>
     <script>

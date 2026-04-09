@@ -326,3 +326,100 @@ function toggleHistoryRow(index) {
         arrow.textContent = '▲ Hide Tests';
     }
 }
+
+// CLINICAL DETECTIVE PARSER & RENDERER
+
+const CLINICAL_LABELS = [
+    { key: "URGENCY",               icon: "🚨", color: "#dc3545" },
+    { key: "PATTERN DETECTED",      icon: "🔗", color: "#6f42c1" },
+    { key: "SYSTEM AFFECTED",       icon: "🫀", color: "#0056b3" },
+    { key: "ROOT CAUSE HYPOTHESIS", icon: "🧬", color: "#0056b3" },
+    { key: "DIFFERENTIAL",          icon: "🔀", color: "#6c757d" },
+    { key: "MISSING TEST",          icon: "🔬", color: "#fd7e14" },
+    { key: "TREND IMPACT",          icon: "📉", color: "#28a745" },
+    { key: "NEXT STEPS",            icon: "📋", color: "#17a2b8" },
+    { key: "DOCTOR NOTE",           icon: "💬", color: "#003366" }
+];
+
+function parseClinical(text) {
+    if (!text) return null;
+
+    const positions = [];
+    CLINICAL_LABELS.forEach(label => {
+        const idx = text.indexOf(label.key + ":");
+        if (idx !== -1) positions.push({ idx, label });
+    });
+
+    positions.sort((a, b) => a.idx - b.idx);
+    if (positions.length === 0) return null;
+
+    const parts = [];
+    positions.forEach((pos, i) => {
+        const start = pos.idx + pos.label.key.length + 1;
+        const end = i + 1 < positions.length ? positions[i + 1].idx : text.length;
+        const content = text.slice(start, end).trim();
+        parts.push({ label: pos.label, content });
+    });
+
+    return parts;
+}
+
+function renderClinical() {
+    const container = document.getElementById('clinicalParsed');
+    const fallback = document.getElementById('clinicalFallback');
+    if (!container) return;
+
+    const parts = parseClinical(CLINICAL_TEXT);
+    if (!parts || parts.length === 0) {
+        if (fallback) fallback.style.display = 'block';
+        return;
+    }
+
+    container.innerHTML = parts.map((part, index) => {
+        const isLast = index === parts.length - 1;
+        const isDivider = !isLast;
+
+        return `
+        <div style="
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+            padding: 10px 0;
+            ${isDivider ? 'border-bottom: 1px solid #f0f0f0;' : ''}
+        ">
+            <div style="
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 0;
+                min-width: 32px;
+            ">
+                <span style="font-size:1.2rem;">${part.label.icon}</span>
+                ${isDivider ? `<div style="width:2px; height:100%; min-height:20px; background:${part.label.color}20; margin-top:4px;"></div>` : ''}
+            </div>
+            <div style="flex:1; padding-bottom: ${isDivider ? '6px' : '0'};">
+                <span style="
+                    font-size: 0.68rem;
+                    font-weight: 900;
+                    text-transform: uppercase;
+                    color: ${part.label.color};
+                    letter-spacing: 0.8px;
+                    display: block;
+                    margin-bottom: 3px;
+                ">${part.label.key}</span>
+                <span style="
+                    font-size: 0.92rem;
+                    color: #2c3e50;
+                    line-height: 1.6;
+                    white-space: pre-line;
+                ">${part.content}</span>
+            </div>
+        </div>
+        `;
+    }).join('');
+}
+
+// Auto-render on page load
+document.addEventListener('DOMContentLoaded', function() {
+    renderClinical();
+});

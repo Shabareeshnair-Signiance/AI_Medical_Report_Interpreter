@@ -78,7 +78,7 @@ class TrendAgent:
 
         # --- 1. BASELINE LOGIC ---
         # If history is empty OR only contains the current report we just saved
-        if not history or len(history) < 2:
+        if not history:
             current_results = current_report.get('lab_results', [])
             insight = self._generate_llm_insight(patient_name, current_results, is_baseline=True)
             

@@ -397,7 +397,7 @@
         </main>
     </div>
     <script>
-        const TRENDS_DATA = {{ trends | tojson | safe if trends else '[]' }};
+        const TRENDS_DATA = {{ all_trends | tojson | safe if all_trends else '[]' }};
     </script>
     <script src="/logic/doctor.js"></script>
     <script>

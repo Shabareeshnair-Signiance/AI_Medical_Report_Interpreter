@@ -334,17 +334,22 @@ def doctor_dashboard():
                 raw_data = get_trends_for_patient(pid, patient_name)
 
                 if not raw_data:
-                    return []
+                    return [], []
 
                 for row in raw_data:
                     name_options = [row.get("parameter"), row.get("test"), row.get("biomarker"), row.get("name")]
                     row["parameter"] = next((name for name in name_options if name), "Unknown Biomarker")
-                    
                     row["result_value"] = row.get("value") or row.get("result") or "N/A"
                     row["ref_range"] = row.get("reference_range") or row.get("ref_range") or "N/A"
                     row["status"] = str(row.get("status", "")).upper()
-                    
-                return raw_data
+
+                # Finding the latest datte in all records
+                latest_date = max(row.get("date", "") for row in raw_data)
+
+                # splitting into current (table) and all (graph)
+                current_only = [row for row in raw_data if row.get("date") == latest_date]
+
+                return current_only, raw_data
 
             # 3. PHASE 2: DUPLICATE HANDLING
             if validation["status"] == "DUPLICATE":
@@ -354,7 +359,7 @@ def doctor_dashboard():
                 # so the table and graph don't stay empty!
                 
                 #t_data = get_trends_for_patient(validation.get("pid"))
-                t_data = get_clean_trends(validation.get("pid"), validation.get("patient_name"))
+                t_data, all_trends = get_clean_trends(validation.get("pid"), validation.get("patient_name"))
                 t_insight = existing_row["llm_insight"] if existing_row else "N/A"
                 c_suggestion = existing_row["clinical_suggestion"] if existing_row else "N/A"
                 past_history = get_history_for_patient(pid=validation.get("pid"), name=validation.get("patient_name"))
@@ -364,6 +369,7 @@ def doctor_dashboard():
                     validation=validation,
                     #trends_data = t_data,
                     trends=t_data,
+                    all_trends = all_trends,
                     trend_insight=t_insight,
                     clinical_suggestion=c_suggestion,
                     history=past_history,
@@ -381,7 +387,7 @@ def doctor_dashboard():
             final_output = doctor_app.invoke(input_state)
 
             # this ensures that even on the first upload we get the data just saved by the agent
-            t_data = get_clean_trends(validation.get("pid"), validation.get("patient_name"))
+            t_data, all_trends = get_clean_trends(validation.get("pid"), validation.get("patient_name"))
 
             # Fetch fresh history for the UI
             past_history = get_history_for_patient(
@@ -402,6 +408,7 @@ def doctor_dashboard():
                 trend_insight=final_output.get("trend_insight", "N/A"),
                 #trends=final_output.get("trends", []),
                 trends=t_data,
+                all_trends = all_trends,
                 history=past_history if past_history else [],
                 status="PROCESSED"
             )

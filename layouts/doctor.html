@@ -276,25 +276,117 @@
                         <h2>Past Medical Records</h2>
                     </div>
                     <div class="card-body">
-                        <table>
+                        <style>
+                            .history-main-row {
+                                cursor: pointer;
+                                transition: background 0.2s;
+                            }
+                            .history-main-row:hover {
+                                background-color: #f0f4ff !important;
+                            }
+                            .history-main-row td:last-child {
+                                text-align: right;
+                                color: #0056b3;
+                                font-size: 0.85rem;
+                                font-weight: 600;
+                            }
+                            .history-detail-row {
+                                display: none;
+                                background-color: #f8fbff;
+                            }
+                            .history-detail-row.open {
+                                display: table-row;
+                            }
+                            .history-detail-inner {
+                                padding: 12px 20px;
+                            }
+                            .history-detail-table {
+                                width: 100%;
+                                border-collapse: collapse;
+                                font-size: 0.85rem;
+                                margin-top: 8px;
+                            }
+                            .history-detail-table th {
+                                background: #e8f0fe;
+                                color: #003366;
+                                padding: 8px 12px;
+                                text-align: left;
+                                font-weight: 700;
+                            }
+                            .history-detail-table td {
+                                padding: 8px 12px;
+                                border-bottom: 1px solid #eee;
+                            }
+                            .history-detail-table .h-high { 
+                                color: #dc3545; 
+                                font-weight: 700; 
+                            }
+                            .history-detail-table .h-low { 
+                                color: #fd7e14; 
+                                font-weight: 700; 
+                            }
+                            .history-detail-table .h-normal { 
+                                color: #28a745; 
+                                font-weight: 700; 
+                            }
+                        </style>
+
+                        <table style="width:100%; border-collapse:collapse;">
                             <thead>
-                                <tr>
-                                    <th>Date of Report</th>
-                                    <th>Patient Name</th>
-                                    <th>Patient ID</th>
+                                <tr style="background:#f8fbff;">
+                                    <th style="padding:12px; text-align:left; color:#003366;">Date of Report</th>
+                                    <th style="padding:12px; text-align:left; color:#003366;">Patient Name</th>
+                                    <th style="padding:12px; text-align:left; color:#003366;">Patient ID</th>
+                                    <th style="padding:12px; text-align:right; color:#003366;">Details</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% if history %}
                                     {% for item in history %}
-                                    <tr>
-                                        <td>{{ item.report_date }}</td>
-                                        <td>{{ item.patient_name }}</td>
-                                        <td>{{ item.pid }}</td>
+                                    <tr class="history-main-row" onclick="toggleHistoryRow({{ loop.index }})">
+                                        <td style="padding:12px; border-bottom:1px solid #f0f0f0;">{{ item.report_date }}</td>
+                                        <td style="padding:12px; border-bottom:1px solid #f0f0f0;">{{ item.patient_name }}</td>
+                                        <td style="padding:12px; border-bottom:1px solid #f0f0f0;">{{ item.pid }}</td>
+                                        <td style="padding:12px; border-bottom:1px solid #f0f0f0;">
+                                            <span id="historyArrow{{ loop.index }}">▼ View Tests</span>
+                                        </td>
+                                    </tr>
+                                    <tr class="history-detail-row" id="historyDetail{{ loop.index }}">
+                                        <td colspan="4">
+                                            <div class="history-detail-inner">
+                                                {% if item.lab_results %}
+                                                <table class="history-detail-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Biomarker</th>
+                                                            <th>Value</th>
+                                                            <th>Reference Range</th>
+                                                            <th>Status</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for test in item.lab_results %}
+                                                        <tr>
+                                                            <td>{{ test.get('parameter') or test.get('test') or 'N/A' }}</td>
+                                                            <td>{{ test.get('value') or 'N/A' }}</td>
+                                                            <td>{{ test.get('reference_range') or test.get('ref_range') or 'N/A' }}</td>
+                                                            <td>
+                                                                {% set s = (test.get('status') or 'NORMAL') | upper %}
+                                                                <span class="h-{{ s | lower }}">{{ s }}</span>
+                                                            </td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                                {% else %}
+                                                    <p style="color:#888; margin:0;">No test data available for this report.</p>
+                                                {% endif %}
+                                            </div>
+                                        </td>
                                     </tr>
                                     {% endfor %}
                                 {% else %}
-                                    <tr><td colspan="3">No previous history available.</td></tr>
+                                    <tr><td colspan="4" style="padding:12px; color:#888;">No previous history available.</td></tr>
                                 {% endif %}
                             </tbody>
                         </table>

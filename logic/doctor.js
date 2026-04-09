@@ -229,3 +229,25 @@ function toggleSummary() {
         arrow.textContent = '▼ Show';
     }
 }
+
+function toggleHistoryRow(index) {
+    const detailRow = document.getElementById('historyDetail' + index);
+    const arrow = document.getElementById('historyArrow' + index);
+    if (!detailRow || !arrow) return;
+
+    const isOpen = detailRow.classList.contains('open');
+    
+    // Close all other open rows first
+    document.querySelectorAll('.history-detail-row.open').forEach(row => {
+        row.classList.remove('open');
+    });
+    document.querySelectorAll('[id^="historyArrow"]').forEach(a => {
+        a.textContent = '▼ View Tests';
+    });
+
+    // Toggle clicked row
+    if (!isOpen) {
+        detailRow.classList.add('open');
+        arrow.textContent = '▲ Hide Tests';
+    }
+}

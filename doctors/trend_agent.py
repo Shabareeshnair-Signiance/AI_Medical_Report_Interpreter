@@ -94,12 +94,14 @@ class TrendAgent:
             # Sort by date: Oldest -> Newest
             history = sorted(history, key=lambda x: datetime.strptime(x.get('report_date', '1900-01-01'), "%Y-%m-%d"))
             
-            # history[-1] is the report you just uploaded.
-            # history[-2] is the TRUE previous report.
-            last_report = history[-2] 
+            if len(history) >= 2:
+                last_report = history[-2]
+            else:
+                # Only 1 record exist
+                last_report = history[0]
+                logger.info(f"Only 1 history record found, using it as a previous report.")
         except Exception as e:
             logger.error(f"Sorting error: {e}")
-            # Fallback to the first item if sorting fails
             last_report = history[0]
 
         # REMOVED: last_report = history[-1] <--- This was the bug!

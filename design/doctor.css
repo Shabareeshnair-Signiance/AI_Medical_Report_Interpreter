@@ -305,3 +305,130 @@ tr:hover { background-color: #f0f7ff; }
 .clinical-note strong {
     color: #000;
 }
+
+/* --- TREND ANALYSIS LAYOUT --- */
+.trend-grid-layout {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 25px;
+    margin-top: 15px;
+    align-items: start;
+}
+.trend-left-panel { border-right: 1px solid #eee; padding-right: 15px; }
+.trend-right-panel { display: flex; flex-direction: column; gap: 15px; }
+.summary-box { padding: 12px 15px; background-color: #f8f9fa; border-radius: 8px; border-left: 4px solid #007bff; }
+.chart-wrapper { background: #ffffff; padding: 10px; border-radius: 8px; border: 1px solid #f0f0f0; height: 320px; }
+
+/* --- TREND ROW STATUS COLOURS --- */
+.row-critical { background-color: rgba(220, 53, 69, 0.08) !important; border-left: 5px solid #dc3545; }
+.row-low { background-color: rgba(253, 126, 20, 0.08) !important; border-left: 5px solid #fd7e14; }
+.row-normal { background-color: rgba(40, 167, 69, 0.06) !important; border-left: 5px solid #28a745; }
+.row-high { background-color: rgba(220, 53, 69, 0.05) !important; border-left: 4px solid #dc3545; }
+.trend-row:hover { cursor: pointer; background-color: #f0f4ff !important; }
+.selected-highlight { background-color: #dce8ff !important; border-left: 5px solid #0056b3 !important; }
+
+/* --- HISTORY TABLE --- */
+.history-main-row { cursor: pointer; transition: background 0.2s; }
+.history-main-row:hover { background-color: #f0f4ff !important; }
+.history-main-row td:last-child { text-align: right; color: #0056b3; font-size: 0.85rem; font-weight: 600; }
+.history-detail-row { display: none; background-color: #f8fbff; }
+.history-detail-row.open { display: table-row; }
+.history-detail-inner { padding: 12px 20px; }
+.history-detail-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 8px; }
+.history-detail-table th { background: #e8f0fe; color: #003366; padding: 8px 12px; text-align: left; font-weight: 700; }
+.history-detail-table td { padding: 8px 12px; border-bottom: 1px solid #eee; }
+.history-detail-table .h-high { color: #dc3545; font-weight: 700; }
+.history-detail-table .h-low { color: #fd7e14; font-weight: 700; }
+.history-detail-table .h-normal { color: #28a745; font-weight: 700; }
+
+/* --- FLOATING CHATBOT --- */
+#chatbot-fab { position: fixed; bottom: 30px; right: 30px; width: 56px; height: 56px; background: #0056b3; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 16px rgba(0,86,179,0.4); z-index: 9999; font-size: 1.4rem; user-select: none; transition: background 0.2s; }
+#chatbot-fab:hover { background: #003d82; }
+#chatbot-window { position: fixed; bottom: 100px; right: 30px; width: 360px; height: 480px; background: #ffffff; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.15); z-index: 9998; display: none; flex-direction: column; overflow: hidden; border: 1px solid #e0e6ed; }
+#chatbot-window.open { display: flex; }
+#chatbot-header { background: #0056b3; color: white; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; cursor: grab; user-select: none; border-radius: 16px 16px 0 0; }
+#chatbot-header:active { cursor: grabbing; }
+#chatbot-header h4 { margin: 0; font-size: 0.95rem; font-weight: 700; }
+#chatbot-header-btns { display: flex; gap: 8px; }
+#chatbot-header-btns button { background: rgba(255,255,255,0.2); border: none; color: white; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; }
+#chatbot-header-btns button:hover { background: rgba(255,255,255,0.35); }
+#chatbot-context-bar { background: #f0f4ff; padding: 7px 14px; font-size: 0.75rem; color: #0056b3; font-weight: 600; border-bottom: 1px solid #e0e6ed; }
+#chatbot-messages { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; background: #f8fbff; }
+.chat-msg { max-width: 85%; padding: 9px 13px; border-radius: 12px; font-size: 0.88rem; line-height: 1.5; }
+.chat-msg.user { background: #0056b3; color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+.chat-msg.bot { background: #ffffff; color: #333; align-self: flex-start; border: 1px solid #e0e6ed; border-bottom-left-radius: 4px; }
+.chat-msg.typing { background: #ffffff; color: #999; align-self: flex-start; border: 1px solid #e0e6ed; font-style: italic; }
+#chatbot-input-area { padding: 12px; border-top: 1px solid #e0e6ed; display: flex; gap: 8px; background: white; }
+#chatbot-input { flex: 1; padding: 9px 12px; border: 1.5px solid #e0e6ed; border-radius: 8px; font-size: 0.88rem; outline: none; font-family: inherit; }
+#chatbot-input:focus { border-color: #0056b3; }
+#chatbot-send { background: #0056b3; color: white; border: none; padding: 9px 14px; border-radius: 8px; cursor: pointer; font-size: 0.88rem; font-weight: 600; }
+#chatbot-send:hover { background: #003d82; }
+#chatbot-send:disabled { background: #ccc; cursor: not-allowed; }
+
+/* --- CHATBOT ENHANCEMENTS --- */
+
+/* Quick Question Chips */
+.chat-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 14px 4px;
+    background: #f8fbff;
+    border-bottom: 1px solid #e0e6ed;
+}
+
+.chat-chip {
+    background: #ffffff;
+    border: 1.5px solid #0056b3;
+    color: #0056b3;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.chat-chip:hover {
+    background: #0056b3;
+    color: white;
+}
+
+/* Copy Button on Bot Messages */
+.chat-msg-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    max-width: 85%;
+}
+
+.chat-msg-wrapper.user-wrapper {
+    align-self: flex-end;
+    align-items: flex-end;
+}
+
+.copy-btn {
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 0.72rem;
+    cursor: pointer;
+    padding: 0 4px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    transition: color 0.2s;
+}
+
+.copy-btn:hover { color: #0056b3; }
+.copy-btn.copied { color: #28a745; }
+
+/* Markdown inside bot messages */
+.chat-msg.bot strong { font-weight: 700; color: #003366; }
+.chat-msg.bot em { font-style: italic; color: #555; }
+.chat-msg.bot ul { margin: 6px 0 6px 16px; padding: 0; }
+.chat-msg.bot ul li { margin-bottom: 3px; line-height: 1.5; }
+.chat-msg.bot p { margin: 0 0 6px 0; }
+.chat-msg.bot p:last-child { margin-bottom: 0; }

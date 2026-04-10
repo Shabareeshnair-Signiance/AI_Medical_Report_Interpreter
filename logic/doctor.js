@@ -423,3 +423,232 @@ function renderClinical() {
 document.addEventListener('DOMContentLoaded', function() {
     renderClinical();
 });
+
+// ============================================
+// SIMPLE MARKDOWN RENDERER
+// ============================================
+function renderMarkdown(text) {
+    return text
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')   // **bold**
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')                // *italic*
+        .replace(/^#{1,3}\s+(.+)$/gm, '<strong>$1</strong>') // # headings
+        .replace(/^[-•]\s+(.+)$/gm, '<li>$1</li>')           // - bullet
+        .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')           // wrap bullets
+        .replace(/\n{2,}/g, '</p><p>')                        // paragraphs
+        .replace(/\n/g, '<br>')                               // line breaks
+        .replace(/^(.+)$/, '<p>$1</p>');                      // wrap in p
+}
+
+// FLOATING CHATBOT
+
+function toggleChatbot() {
+    const win = document.getElementById('chatbot-window');
+    const fab = document.getElementById('chatbot-fab');
+    if (!win) return;
+
+    win.classList.toggle('open');
+
+    if (win.classList.contains('open')) {
+        // Position window just above the FAB's current position
+        const fabRect = fab.getBoundingClientRect();
+
+        const winWidth = 360;
+        const winHeight = 480;
+
+        let left = fabRect.left + fabRect.width / 2 - winWidth / 2;
+        let top = fabRect.top - winHeight - 10;
+
+        // Keep within screen bounds
+        left = Math.max(10, Math.min(left, window.innerWidth - winWidth - 10));
+        top = Math.max(10, Math.min(top, window.innerHeight - winHeight - 10));
+
+        win.style.position = 'fixed';
+        win.style.bottom = 'auto';
+        win.style.right = 'auto';
+        win.style.left = left + 'px';
+        win.style.top = top + 'px';
+
+        setTimeout(() => document.getElementById('chatbot-input')?.focus(), 100);
+    }
+}
+
+function clearChat() {
+    const messages = document.getElementById('chatbot-messages');
+    if (!messages) return;
+    messages.innerHTML = `
+        <div class="chat-msg bot">
+            Hello Doctor 👋 I have access to the current patient report. Ask me anything about the findings, test results or next steps.
+        </div>`;
+    const chips = document.getElementById('chat-chips-bar');
+    if (chips) chips.style.display = 'flex';
+}
+
+async function sendChatMessage(prefillText) {
+    const input = document.getElementById('chatbot-input');
+    const messages = document.getElementById('chatbot-messages');
+    const sendBtn = document.getElementById('chatbot-send');
+    if (!input || !messages) return;
+
+    const userText = prefillText || input.value.trim();
+    if (!userText) return;
+
+    // Hide chips after first message
+    const chips = document.getElementById('chat-chips-bar');
+    if (chips) chips.style.display = 'none';
+
+    // Append user bubble
+    messages.innerHTML += `
+        <div class="chat-msg-wrapper user-wrapper">
+            <div class="chat-msg user">${userText}</div>
+        </div>`;
+    input.value = '';
+    sendBtn.disabled = true;
+
+    // Typing indicator
+    const typingId = 'typing-' + Date.now();
+    messages.innerHTML += `<div class="chat-msg typing" id="${typingId}">⌛ Thinking...</div>`;
+    messages.scrollTop = messages.scrollHeight;
+
+    try {
+        const response = await fetch('/chatbot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: userText,
+                context: PATIENT_CONTEXT
+            })
+        });
+
+        const data = await response.json();
+        const reply = data?.reply || 'Sorry, I could not generate a response.';
+        const msgId = 'msg-' + Date.now();
+
+        document.getElementById(typingId)?.remove();
+
+        messages.innerHTML += `
+            <div class="chat-msg-wrapper">
+                <div class="chat-msg bot" id="${msgId}">${renderMarkdown(reply)}</div>
+                <button class="copy-btn" onclick="copyMessage('${msgId}', this)">
+                    📋 Copy
+                </button>
+            </div>`;
+
+    } catch (err) {
+        document.getElementById(typingId)?.remove();
+        messages.innerHTML += `<div class="chat-msg bot" style="color:#dc3545;">⚠️ Error connecting to AI. Please try again.</div>`;
+    }
+
+    sendBtn.disabled = false;
+    messages.scrollTop = messages.scrollHeight;
+    input.focus();
+}
+
+// ============================================
+// QUICK CHIPS + COPY BUTTON
+// ============================================
+
+function copyMessage(msgId, btn) {
+    const el = document.getElementById(msgId);
+    if (!el) return;
+    navigator.clipboard.writeText(el.innerText).then(() => {
+        btn.textContent = '✅ Copied';
+        btn.classList.add('copied');
+        setTimeout(() => {
+            btn.textContent = '📋 Copy';
+            btn.classList.remove('copied');
+        }, 2000);
+    });
+}
+
+function initChatChips() {
+    const win = document.getElementById('chatbot-window');
+    const contextBar = document.getElementById('chatbot-context-bar');
+    if (!win || !contextBar) return;
+
+    const chips = [
+        '📋 Summarize findings',
+        '🚨 What is abnormal?',
+        '🔬 Suggest next tests',
+        '💊 Recommend next steps'
+    ];
+
+    const bar = document.createElement('div');
+    bar.className = 'chat-chips';
+    bar.id = 'chat-chips-bar';
+    bar.innerHTML = chips.map(c =>
+        `<button class="chat-chip" onclick="sendChatMessage('${c}')">${c}</button>`
+    ).join('');
+
+    contextBar.insertAdjacentElement('afterend', bar);
+}
+
+// Init chips when page loads
+document.addEventListener('DOMContentLoaded', initChatChips);
+
+// ============================================
+// DRAGGABLE CHATBOT WINDOW
+// ============================================
+
+document.addEventListener('DOMContentLoaded', function () {
+    const win = document.getElementById('chatbot-window');
+    const header = document.getElementById('chatbot-header');
+    const fab = document.getElementById('chatbot-fab');
+    if (!win || !header || !fab) return;
+
+    // ── Shared drag logic ──────────────────────────
+    function makeDraggable(handle, target, onDragEnd) {
+        let isDragging = false;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        handle.addEventListener('mousedown', function (e) {
+            if (e.target.closest('#chatbot-header-btns')) return;
+            isDragging = true;
+
+            const rect = target.getBoundingClientRect();
+            target.style.position = 'fixed';
+            target.style.bottom = 'auto';
+            target.style.right = 'auto';
+            target.style.top = rect.top + 'px';
+            target.style.left = rect.left + 'px';
+
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+            document.body.style.userSelect = 'none';
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', function (e) {
+            if (!isDragging) return;
+            let newLeft = e.clientX - offsetX;
+            let newTop = e.clientY - offsetY;
+            newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - target.offsetWidth));
+            newTop = Math.max(0, Math.min(newTop, window.innerHeight - target.offsetHeight));
+            target.style.left = newLeft + 'px';
+            target.style.top = newTop + 'px';
+            if (onDragEnd) onDragEnd(newLeft, newTop);
+        });
+
+        document.addEventListener('mouseup', function () {
+            if (isDragging && onDragEnd) {
+                const rect = target.getBoundingClientRect();
+                onDragEnd(rect.left, rect.top);
+            }
+            isDragging = false;
+            document.body.style.userSelect = '';
+        });
+    }
+
+    // ── Drag the window → FAB follows below it ─────
+    makeDraggable(header, win, function (winLeft, winTop) {
+        const winRect = win.getBoundingClientRect();
+        fab.style.position = 'fixed';
+        fab.style.bottom = 'auto';
+        fab.style.right = 'auto';
+        fab.style.left = (winLeft + winRect.width / 2 - fab.offsetWidth / 2) + 'px';
+        fab.style.top = (winTop + win.offsetHeight + 10) + 'px';
+    });
+
+    // ── Drag the FAB alone (when window is closed) ─
+    makeDraggable(fab, fab, null);
+});

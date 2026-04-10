@@ -458,6 +458,54 @@ def doctor_dashboard():
         logger.error(f"Doctor Dashboard Error: {str(e)}")
         return f"Error: {str(e)}"
 
+
+# Doctor's chatbot assistant
+@app.route("/chatbot", methods = ["POST"])
+def doctor_chat():
+    try:
+        data = request.get_json()
+        user_message = data.get("message", "")
+        patient_context = data.get("context", "")
+
+        if not user_message:
+            return jsonify({"reply": "Please ask a question."})
+        
+        # building system prompt with patient context injected
+        system_prompt = f"""You are a Clinical Assistant helping a doctor review a patient report.
+        
+        Current Patient Context:
+        {patient_context}
+
+        Your Role:
+        - Answer questions about this specific patient's results
+        - Explain what abnormal values mean clinically
+        - Suggest follow-up tests or actions based on the data
+        - Be concise, professional and use medical terminology
+        - Never make a final diagnosis - always recommend doctor judgement
+        - If asked something outside this report, say you only have access to the current report data
+
+        Keep responses under 150 words unless the doctor ask for detail.
+        """
+
+        from llm.llm_provider import get_llm
+        from langchain_core.messages import HumanMessage, SystemMessage
+
+        llm = get_llm()
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_message)
+        ]
+
+        response = llm.invoke(messages)
+        reply = response.content if hasattr(response, 'content') else str (response)
+
+        return jsonify({"reply": reply})
+    
+    except Exception as e:
+        logger.error(f"Doctor Chat Error: {str(e)}")
+        return jsonify({"reply": "Sorry, I could not process your question. Please try again."})
+
+
 if __name__ == "__main__":
     init_database()
     init_history_database()

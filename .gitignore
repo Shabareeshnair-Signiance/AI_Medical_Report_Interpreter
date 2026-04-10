@@ -205,3 +205,34 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+
+# Sample and test data
+sample_data/
+
+# Database files
+data/*.db
+*.db
+
+# Uploaded files
+data/uploads/
+
+# But keep the data folder structure
+!data/.gitkeep
+!data/uploads/.gitkeep
+
+# React
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Lock files (optional but recommended to push)
+# uv.lock - keep this
+# package-lock.json - keep this

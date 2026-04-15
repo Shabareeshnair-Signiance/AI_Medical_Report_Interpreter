@@ -10,7 +10,7 @@ DB_PATH = os.path.join(os.getcwd(), "data", "medical_history.db")
 
 def _get_fuzzy_clean_name(name):
     """Tier 3: Normalizes names by removing middle initials and extra dots."""
-    import re
+    #import re
     if not name: return "unknown"
     # Convert to lowercase and remove dots (e.g., 'M.' -> 'M')
     name = name.lower().replace(".", "").strip()
@@ -325,3 +325,70 @@ def get_report_scenario(file_hash, extracted_data):
         return "SAME_DATE_REPORT", history
 
     return "HISTORY_AVAILABLE", history
+
+
+# Doctor's Dashboard Vision Pipeline Integration
+
+import logging
+logger = logging.getLogger(__name__)
+
+def save_doctor_vision_report(file_hash, patient_metadata, vision_ocr_results, agent_results):
+    """
+    Dedicated save function for the Doctor's Vision Pipeline
+    Safely maps the Vision OCR output to the existing database scehma without touching old code.
+
+    Args:
+        file_hash (str): The SHA-256 hash of the uploaded file.
+        patient_metadata (dict): Contains name, age, dob, report_date (usually entered by doctor or extracted)
+        vision_ocr_results (dict): The {"lab_results": [...]} JSON from the Vision OCR.
+        agent_results (dict): The insights from the Clinical Detective Agent.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+
+        # 1. Safely extract metadata using the existing expected keys
+        raw_pid = patient_metadata.get("pid") or patient_metadata.get("lab_no") or "Doctor_Upload"
+        name = patient_metadata.get("patient_name", "").strip()
+        #report_date = patient_metadata.get("report_date")
+        age = patient_metadata.get("age")
+        dob = patient_metadata.get("dob")
+
+        raw_report_date = str(patient_metadata.get("report_date", ""))
+        clean_date = raw_report_date
+
+        if raw_report_date:
+            match_yyyy = re.search(r"(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})", raw_report_date)
+            match_dd = re.search(r"(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})", raw_report_date)
+
+            if match_yyyy:
+                clean_date = f"{match_yyyy.group(1)}-{int(match_yyyy.group(2)):02d}-{int(match_yyyy.group(3)):02d}"
+            elif match_dd:
+                clean_date = f"{match_dd.group(3)}-{int(match_dd.group(2)):02d}-{int(match_dd.group(1)):02d}"
+
+        # 2. Using the existing working Hybrid UID generator
+        internal_pid = generate_internal_uid(name, age, dob, clean_date)
+
+        # 3. Extracting the lab results array from the Vision OCR JSON
+        medical_json = json.dumps(vision_ocr_results.get("lab_results", []))
+
+        # 4. Extracting insights from the Doctor's Detective Agent
+        insight = agent_results.get("trend_insight", "")
+        suggestion = agent_results.get("clinical_suggestion", "")
+
+        # 5. Inserting the exact same schema as the existing code
+        cursor.execute("""
+        INSERT OR REPLACE INTO patient_reports
+        (file_hash, patient_id, patient_name, report_date, medical_data, llm_insight, clinical_suggestion)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (file_hash, str(internal_pid), name, clean_date, medical_json, insight, suggestion))
+
+        conn.commit()
+        conn.close()
+
+        logger.info(f"[Doctor Pipeline] Report safely mapped and saved to Internal UID: {internal_pid}")
+        return True
+    
+    except Exception as e:
+        logger.error(f"[Doctor Pipeline] Failed to save Vision data for hash {file_hash}: {str(e)}")
+        return False

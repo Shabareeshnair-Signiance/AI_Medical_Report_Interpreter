@@ -306,6 +306,8 @@ def chat():
         logger.error(f"Chat route error: {str(e)}")
         return jsonify({"response": "Chat failed"})
     
+
+
 # This is a new page for doctor's
 @app.route("/doctor", methods=["GET", "POST"])
 def doctor_dashboard():
@@ -322,6 +324,81 @@ def doctor_dashboard():
             # 2. PHASE 1: VALIDATION (The New Step)
             # This uses your new Agent to check Hash, Identity, and History
             validation = doc_validator.validate_for_doctor(file_path)
+
+            # Vision Rescue block
+            if not validation.get("is_valid"):
+                text_check = read_pdf(file_path)
+                if not text_check or len(text_check.strip()) < 50:
+                    logger.info("Text validation failed (likely a scanned image). Attempting Vision AI Rescue...")
+                    import hashlib
+                    import re
+                    from storage.medical_history_db import get_existing_analysis
+                    from processing.llm_doctor_validator import vision_extract_doctor_identity
+                    
+                    sha256 = hashlib.sha256()
+                    with open(file_path, "rb") as f:
+                        while chunk := f.read(8192): sha256.update(chunk)
+                    rescue_hash = sha256.hexdigest()
+                    
+                    identity = vision_extract_doctor_identity(file_path)
+                    if identity and identity.get("name"):
+                        existing_row = get_existing_analysis(rescue_hash)
+                        
+                        raw_pid = identity.get("identifier")
+                        true_uid = raw_pid
+                        cached_lab_results = []
+                        
+                        # 1. Force the date into YYYY-MM-DD format so the database can match it
+                        raw_date = str(identity.get("date", ""))
+                        clean_date = raw_date
+                        if raw_date:
+                            match_yyyy = re.search(r"(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})", raw_date)
+                            match_dd = re.search(r"(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})", raw_date)
+                            if match_yyyy:
+                                clean_date = f"{match_yyyy.group(1)}-{int(match_yyyy.group(2)):02d}-{int(match_yyyy.group(3)):02d}"
+                            elif match_dd:
+                                clean_date = f"{match_dd.group(3)}-{int(match_dd.group(2)):02d}-{int(match_dd.group(1)):02d}"
+                        
+                        if existing_row:
+                            past_history = get_history_for_patient(pid=raw_pid, name=identity.get("name"))
+                            if past_history:
+                                true_uid = past_history[0].get("patient_id") or past_history[0].get("uid") or past_history[0].get("pid") or raw_pid
+                                
+                                # 2. Match the cleaned date to get the lab results for Phase 2
+                                for item in past_history:
+                                    if item.get("date") == clean_date:
+                                        cached_lab_results.append({
+                                            "test": item.get("test") or item.get("parameter"),
+                                            "value": item.get("value") or item.get("result_value"),
+                                            "reference_range": item.get("reference_range") or item.get("ref_range")
+                                        })
+                                        
+                                # 3. BULLETPROOF FALLBACK: If date matching still fails, grab the latest DB data
+                                if not cached_lab_results:
+                                    logger.warning("Exact date match failed. Falling back to latest DB records for duplicate.")
+                                    fallback_date = max(item.get("date", "") for item in past_history)
+                                    clean_date = fallback_date  # Sync report date so Phase 2 graphs work!
+                                    for item in past_history:
+                                        if item.get("date") == fallback_date:
+                                            cached_lab_results.append({
+                                                "test": item.get("test") or item.get("parameter"),
+                                                "value": item.get("value") or item.get("result_value"),
+                                                "reference_range": item.get("reference_range") or item.get("ref_range")
+                                            })
+
+                        validation = {
+                            "is_valid": True,
+                            "status": "DUPLICATE" if existing_row else "NEW",
+                            "file_hash": rescue_hash,
+                            "pid": true_uid,
+                            "patient_name": identity.get("name"),
+                            "report_date": clean_date,  # Uses the cleaned/synced date!
+                            "existing_analysis": {
+                                "llm_insight": existing_row[0] if existing_row else "N/A", 
+                                "clinical_suggestion": existing_row[1] if existing_row else "N/A",
+                                "lab_results": cached_lab_results
+                            } if existing_row else None
+                        }
             
             if not validation["is_valid"]:
                 return render_template("doctor.html", 
@@ -329,7 +406,7 @@ def doctor_dashboard():
                                        validation=validation)
             
             # Helper function logic for Normalization
-            def get_clean_trends(pid, patient_name, current_date=None, current_tests = None):
+            def get_clean_trends(pid, patient_name, current_date=None, current_tests = None, is_scanned = False):
                 from storage.medical_history_db import get_trends_for_patient
                 raw_data = get_trends_for_patient(pid, patient_name)
 
@@ -342,6 +419,17 @@ def doctor_dashboard():
                     row["result_value"] = row.get("value") or row.get("result") or "N/A"
                     row["ref_range"] = row.get("reference_range") or row.get("ref_range") or "N/A"
                     row["status"] = str(row.get("status", "")).upper()
+
+                    # Vision Rescue
+                    if is_scanned:
+                        raw_history_date = str(row.get("date", ""))
+                        match_yyyy = re.search(r"(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})", raw_history_date)
+                        match_dd = re.search(r"(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})", raw_history_date)
+                        
+                        if match_yyyy:
+                            row["date"] = f"{match_yyyy.group(1)}-{int(match_yyyy.group(2)):02d}-{int(match_yyyy.group(3)):02d}"
+                        elif match_dd:
+                            row["date"] = f"{match_dd.group(3)}-{int(match_dd.group(2)):02d}-{int(match_dd.group(1)):02d}"
 
                 # Finding the latest datte in all records
                 # latest_date = max(row.get("date", "") for row in raw_data)
@@ -387,15 +475,34 @@ def doctor_dashboard():
 
             # 3. PHASE 2: DUPLICATE HANDLING
             if validation["status"] == "DUPLICATE":
+
+                # fetching the safely stored date from the DB for cached reports
+                if not validation.get("report_date") or validation.get("report_date") == "Not Found":
+                    try:
+                        import sqlite3
+                        # Using DB_PATH or exact database name here
+                        from storage.medical_history_db import DB_PATH
+                        
+                        conn = sqlite3.connect(DB_PATH) 
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT report_date FROM patient_reports WHERE file_hash=?", (validation.get("file_hash"),))
+                        db_result = cursor.fetchone()
+                        if db_result and db_result[0]:
+                            validation["report_date"] = db_result[0] # Inject the missing date!
+                        conn.close()
+                    except Exception as e:
+                        logger.error(f"Could not fetch cached date: {e}")
+
                 existing_row = validation.get("existing_analysis")
                 
-                # We need to fetch the trend data even for duplicates 
-                # so the table and graph don't stay empty!
+                dup_text_check = read_pdf(file_path)
+                is_scanned_dup = not dup_text_check or len(dup_text_check.strip()) < 50
                 
                 #t_data = get_trends_for_patient(validation.get("pid"))
                 existing = validation.get("existing_analysis")
                 curr_tests = [t.get("test") or t.get("parameter") for t in (existing.get("lab_results", []) if existing and isinstance(existing, dict) else [])]
-                t_data, all_trends, prev_tests = get_clean_trends(validation.get("pid"), validation.get("patient_name"), validation.get("report_date"), curr_tests)
+                
+                t_data, all_trends, prev_tests = get_clean_trends(validation.get("pid"), validation.get("patient_name"), validation.get("report_date"), curr_tests, is_scanned=is_scanned_dup)
                 t_insight = existing_row["llm_insight"] if existing_row else "N/A"
                 c_suggestion = existing_row["clinical_suggestion"] if existing_row else "N/A"
                 past_history = get_history_for_patient(pid=validation.get("pid"), name=validation.get("patient_name"))
@@ -421,11 +528,29 @@ def doctor_dashboard():
             }
             
             logger.info("Running Doctor's Clinical Workflow for new/updated report")
-            final_output = doctor_app.invoke(input_state)
+
+            # The Multi modal router
+            # from processing.pdf_reader import read_pdf
+            report_text_check = read_pdf(file_path)
+
+            # creating a tracker variable
+            is_scanned_report = False
+
+            if report_text_check and len(report_text_check.strip()) > 50:
+                logger.info("Digital Text PDF detected. Running ORIGINAL Doctor App.")
+                final_output = doctor_app.invoke(input_state)
+            else:
+                logger.info("Scanned Image detected. Running NEW Vision App.")
+                from graph.doctor_graph import vision_app
+                final_output = vision_app.invoke(input_state)
+
+                is_scanned_report = True
+
+            #final_output = doctor_app.invoke(input_state)
 
             # this ensures that even on the first upload we get the data just saved by the agent
             curr_tests = [t.get("test") or t.get("parameter") for t in final_output.get("current_report", {}).get("lab_results", [])]
-            t_data, all_trends, prev_tests = get_clean_trends(validation.get("pid"), validation.get("patient_name"), validation.get("report_date"), curr_tests)
+            t_data, all_trends, prev_tests = get_clean_trends(validation.get("pid"), validation.get("patient_name"), validation.get("report_date"), curr_tests, is_scanned=is_scanned_report)
 
             # Fetch fresh history for the UI
             past_history = get_history_for_patient(

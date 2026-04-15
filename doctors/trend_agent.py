@@ -34,34 +34,43 @@ class TrendAgent:
 
     def _generate_llm_insight(self, patient_name, trends, is_baseline=False):
         """Uses LLM to interpret trends or summarize a baseline."""
+
+        # total_tests = len(trends)
+        # abnormal_tests = sum(1 for t in trends if t.get("status", "Normal") != "Normal")
         
         if is_baseline:
             prompt_template = """
             You are a Clinical Summary Assistant. This is the FIRST report for {patient_name}.
             Current Results: {trends_json}
 
-            Write a clinical snapshot in exactly 3 lines. No markdown, no ** symbols, no bullet points.
+            Write a clinical snapshot in exactly 3 lines.
+            
+            STRICT RULES:
+            - No markdown formatting (no **, ##, or bullets).
+            - Output EXACTLY 3 lines starting with the exact prefixes below.
+            - NEVER count the total number of tests. Do not say "Out of X values".
+            - Focus on the most clinically dangerous abnormality.
 
-            Line 1 - FINDINGS: State how many values are abnormal out of total and name the most critical one with its actual number and reference range.
-            Line 2 - SIGNIFICANCE: In one sentence explain what the most abnormal value clinically means for the patient.
-            Line 3 - BASELINE NOTE: State this is now saved as the starting point and what to watch on next visit.
-
-            Use plain text only. Be specific with numbers. Keep under 60 words total.
-            Important: Do NOT use any markdown formatting like ** or ## in your response. Plain text only.
+            Line 1 - FINDINGS: The most critical abnormal finding is [Test Name] at [Value] (Normal: [Range]).
+            Line 2 - SIGNIFICANCE: [One short sentence explaining the immediate clinical risk of this specific abnormality].
+            Line 3 - BASELINE NOTE: This is saved as the baseline. At the next visit, closely monitor [1-2 specific tests].
             """
         else:
             prompt_template = """
             You are a Clinical Summary Assistant. Analyze these lab trends for {patient_name}:
             {trends_json}
 
-            Write a clinical snapshot in exactly 3 lines. No markdown, no ** symbols, no bullet points.
+            Write a clinical snapshot in exactly 3 lines.
+            
+            STRICT RULES:
+            - No markdown formatting (no **, ##, or bullets).
+            - Output EXACTLY 3 lines starting with the exact prefixes below.
+            - NEVER calculate percentages. Only state the raw previous and current numbers.
+            - ACTION must focus on diagnostics, monitoring, or further testing. Do NOT prescribe medications or IVs.
 
-            Line 1 - CHANGE: State the most significant change with exact numbers from previous to current and percentage change.
-            Line 2 - DIRECTION: Is the patient improving, worsening or stable overall? Name the specific value driving this conclusion.
-            Line 3 - ACTION: One specific thing the doctor should focus on at this visit based on the numbers.
-
-            Use plain text only. Be specific with numbers. Keep under 60 words total.
-            Important: Do NOT use any markdown formatting like ** or ## in your response. Plain text only.
+            Line 1 - CHANGE: The most clinically significant shift is [Test Name], which moved from [Previous Value] to [Current Value].
+            Line 2 - DIRECTION: The patient's condition appears [improving / worsening / stable], primarily driven by [Specific Test Name].
+            Line 3 - ACTION: The primary focus for today's visit should be [diagnostic workup or monitoring action based on this shift].
             """
             
         prompt = PromptTemplate(input_variables=["patient_name", "trends_json"], template=prompt_template)

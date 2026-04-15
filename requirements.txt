@@ -6,9 +6,6 @@ openai
 faiss-cpu
 sentence-transformers
 pdfplumber
-# paddleocr
-# paddlepaddle
-easyocr
 opencv-python
 pdf2image
 python-dotenv
@@ -16,3 +13,5 @@ numpy
 sentencepiece
 thefuzz
 python-dateutil
+pymupdf
+pil

@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', function () {
                    .trim();
     }
 
-    // 3. Parse ref range — handles ALL medical formats
+    // 3. Parse ref range — handles ALL medical formats robustly
     function parseRefRange(refRaw, values) {
         let refMin = null;
         let refMax = null;
@@ -50,8 +50,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const clean = refRaw.trim();
 
-        // Format 1: "70 - 100" or "70 – 100" or "70.00 - 100.00 mg/dL"
-        const rangeMatch = clean.match(/([\d.]+)\s*[-–]\s*([\d.]+)/);
+        // Format 1: "70 - 100", "70 to 100" (Handles newlines and spaces automatically)
+        const rangeMatch = clean.match(/([\d.]+)\s*(?:[-–]|to)\s*([\d.]+)/i);
         if (rangeMatch) {
             refMin = parseFloat(rangeMatch[1]);
             refMax = parseFloat(rangeMatch[2]);
@@ -59,8 +59,8 @@ document.addEventListener('DOMContentLoaded', function () {
             return { refMin, refMax, labelText };
         }
 
-        // Format 2: "< 200" or "<200" or "< 200.00 mg/dL"
-        const lessThanMatch = clean.match(/^[<≤]\s*([\d.]+)/);
+        // Format 2: "< 200" or "Less than 80"
+        const lessThanMatch = clean.match(/[<≤]\s*([\d.]+)/);
         if (lessThanMatch) {
             refMin = 0;
             refMax = parseFloat(lessThanMatch[1]);
@@ -68,8 +68,8 @@ document.addEventListener('DOMContentLoaded', function () {
             return { refMin, refMax, labelText };
         }
 
-        // Format 3: "> 40" or ">40" or "> 40.00"
-        const greaterThanMatch = clean.match(/^[>≥]\s*([\d.]+)/);
+        // Format 3: "> 40" 
+        const greaterThanMatch = clean.match(/[>≥]\s*([\d.]+)/);
         if (greaterThanMatch) {
             refMin = parseFloat(greaterThanMatch[1]);
             const dataMax = values.length > 0 ? Math.max(...values) : refMin * 2;
@@ -78,7 +78,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return { refMin, refMax, labelText };
         }
 
-        // Format 4: "Up to 200" or "Upto 150"
+        // Format 4: "Up to 200"
         const upToMatch = clean.match(/up\s*to\s*([\d.]+)/i);
         if (upToMatch) {
             refMin = 0;
@@ -87,8 +87,8 @@ document.addEventListener('DOMContentLoaded', function () {
             return { refMin, refMax, labelText };
         }
 
-        // Format 5: "0 - 6" written as "00 - 06" (leading zeros)
-        const leadingZeroMatch = clean.match(/^(0\d*)\s*[-–]\s*(0\d*)/);
+        // Format 5: "0 - 6" written as "00 - 06" or "00 to 06" (leading zeros)
+        const leadingZeroMatch = clean.match(/^(0\d*)\s*(?:[-–]|to)\s*(0\d*)/i);
         if (leadingZeroMatch) {
             refMin = parseFloat(leadingZeroMatch[1]);
             refMax = parseFloat(leadingZeroMatch[2]);
@@ -96,8 +96,8 @@ document.addEventListener('DOMContentLoaded', function () {
             return { refMin, refMax, labelText };
         }
 
-        // Format 6: Single number like "< 1.0" written as "<1.0"
-        const singleLessMatch = clean.match(/^<\s*([\d.]+)/);
+        // Format 6: Standalone symbols like "< 1.0" or "<1.0"
+        const singleLessMatch = clean.match(/[<≤]\s*([\d.]+)/);
         if (singleLessMatch) {
             refMin = 0;
             refMax = parseFloat(singleLessMatch[1]);
@@ -105,62 +105,157 @@ document.addEventListener('DOMContentLoaded', function () {
             return { refMin, refMax, labelText };
         }
 
+        // Format 7: Standalone number fallback
+        const standaloneMatch = clean.match(/^([\d.]+)$/);
+        if (standaloneMatch) {
+            refMin = 0;
+            refMax = parseFloat(standaloneMatch[1]);
+            labelText = `Normal: < ${refMax}`;
+            return { refMin, refMax, labelText };
+        }
+
+        // Final Fallback: If nothing matches, return the empty values
         return { refMin, refMax, labelText };
     }
 
-    // 4. Build graph from TRENDS_DATA JSON (not from DOM table rows)
+    // 4. Build graph from TRENDS_DATA JSON (The Upgraded Ultimate Version)
     function updateGraphForBiomarker(clickedName) {
         if (!trendChart || !TRENDS_DATA || TRENDS_DATA.length === 0) return;
 
+        // Cleanup any old overlays from previous iterations
+        const oldOverlay = document.getElementById('qualitative-overlay');
+        if (oldOverlay) oldOverlay.remove();
+
+        // FIX: Remove highlight BEFORE updating chart (Retained from your UI logic)
+        document.querySelectorAll('#trendTableBody tr').forEach(r => r.classList.remove('selected-highlight'));
+
         const normalizedClick = normalizeName(clickedName);
 
-        const matched = TRENDS_DATA.filter(row =>
-            normalizeName(row.parameter || '').startsWith(normalizedClick.substring(0, 6))
-        );
+        
+            // 1. SMART FUZZY MATCHING (Fixes "Missing Comparison" and LDL bugs)
+        let matched = TRENDS_DATA.filter(row => {
+            const nRow = normalizeName(row.parameter || '');
+            if (nRow === normalizedClick) return true; // Exact match always works
+            
+            // If slightly different, see if one starts with the other
+            if (nRow.startsWith(normalizedClick) || normalizedClick.startsWith(nRow)) {
+                // Anti-Mix Guards: Prevent grouping distinct tests
+                const guards = ['ratio', 'direct', 'indirect', 'total ', 'non', 'vldl'];
+                for (let guard of guards) {
+                    if (nRow.includes(guard) !== normalizedClick.includes(guard)) return false;
+                }
+                return true;
+            }
+            return false;
+        });
 
         if (matched.length === 0) return;
 
-        matched.sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+            // 2. SAFE DATE SORTING (Handles DD-MM-YYYY and YYYY-MM-DD)
+        function parseSafeDate(dStr) {
+            if (!dStr) return 0;
+            const parts = dStr.split(/[-/.]/);
+            if (parts.length === 3) {
+                return parts[0].length === 4 
+                    ? new Date(`${parts[0]}-${parts[1]}-${parts[2]}`).getTime() 
+                    : new Date(`${parts[2]}-${parts[1]}-${parts[0]}`).getTime();
+            }
+            return new Date(dStr).getTime() || 0;
+        }
+
+        const dateMap = new Map();
+        matched.forEach(row => dateMap.set(row.date || 'unknown', row));
+        matched = Array.from(dateMap.values());
+        
+        // Sort historical dates strictly left-to-right
+        matched.sort((a, b) => parseSafeDate(a.date) - parseSafeDate(b.date));
 
         const labels = matched.map((r, i) => r.date ? r.date : `Point ${i + 1}`);
 
-        // FIX: Filter out non-numeric values like "Positive", "Reactive"
-        const values = matched
-            .map(r => parseFloat(r.value))
-            .filter(v => !isNaN(v));
+        
+            // 3. SAFE NUMBER EXTRACTION & TEXT-TO-NUMBER ENGINE
+        const rawValues = matched.map(r => r.result_value || r.value || '');
+        
+        // Smart extractor: grabs "130" even if the string says "< 130 mg/dL"
+        const numericValues = rawValues.map(v => {
+            const m = String(v).match(/[-+]?[\d]*\.?[\d]+/);
+            return m ? parseFloat(m[0]) : NaN;
+        });
 
-        if (values.length === 0) return;
+        // If no numbers exist at all, this is a qualitative text test
+        const isQualitative = numericValues.every(v => isNaN(v));
 
+        let plotValues = [];
+        let annotations = {};
         const refRaw = matched[0]?.ref_range || "";
-        const { refMin, refMax, labelText } = parseRefRange(refRaw, values);
 
-        // Build annotation config only if we have valid ref range
-        const annotations = {};
-        if (refMin !== null && refMax !== null && labelText) {
-            annotations.refBand = {
-                type: 'box',
-                yMin: refMin,
-                yMax: refMax,
-                backgroundColor: 'rgba(40, 167, 69, 0.08)',
-                borderColor: 'rgba(40, 167, 69, 0.4)',
-                borderWidth: 1,
-                label: {
-                    display: true,
-                    content: labelText,
-                    position: 'start',
-                    color: '#28a745',
-                    font: { size: 11 }
+        if (isQualitative) {
+            // Map words to a severity curve so Chart.js can draw lines
+            function mapQualitative(str) {
+                const s = String(str).toLowerCase();
+                if (s.includes('nil') || s.includes('negative') || s.includes('absent') || s.includes('normal') || s.includes('clear')) return 0;
+                if (s.includes('trace') || s.includes('occasional') || s.includes('rare') || s.includes('slight')) return 1;
+                if (s.includes('1+') || s === '+' || s.includes('mild') || s.includes('few')) return 2;
+                if (s.includes('2+') || s === '++' || s.includes('moderate')) return 3;
+                if (s.includes('3+') || s === '+++' || s.includes('many')) return 4;
+                if (s.includes('4+') || s === '++++' || s.includes('severe')) return 5;
+                if (s.includes('positive') || s.includes('reactive')) return 3; 
+                return 0; 
+            }
+            plotValues = rawValues.map(v => mapQualitative(v));
+
+            trendChart.options.scales.y.min = 0;
+            trendChart.options.scales.y.max = 5;
+            trendChart.options.scales.y.ticks = {
+                stepSize: 1,
+                callback: function(value) {
+                    const catLabels = ['Negative', 'Trace', '1+ (Mild)', '2+ (Mod)', '3+ (High)', '4+ (Severe)'];
+                    return catLabels[value] || '';
                 }
             };
+            trendChart.options.plugins.tooltip.callbacks = {
+                label: function(context) { return `Result: ${rawValues[context.dataIndex]}`; }
+            };
+
+            const refNum = mapQualitative(refRaw);
+            if (refNum === 0) {
+                annotations.refBand = {
+                    type: 'box', yMin: -0.4, yMax: 0.4,
+                    backgroundColor: 'rgba(40, 167, 69, 0.08)', borderColor: 'rgba(40, 167, 69, 0.4)', borderWidth: 1,
+                    label: { display: true, content: `Normal: ${refRaw}`, position: 'start', color: '#28a745', font: { size: 11 } }
+                };
+            }
+        } else {
+            // STANDARD NUMERICAL DATA
+            // Keep NaN as 'null' so Chart.js doesn't shift points to the wrong dates
+            plotValues = numericValues.map(v => isNaN(v) ? null : v);
+
+            delete trendChart.options.scales.y.min;
+            delete trendChart.options.scales.y.max;
+            delete trendChart.options.scales.y.ticks.stepSize;
+            delete trendChart.options.scales.y.ticks.callback; 
+            delete trendChart.options.plugins.tooltip.callbacks; 
+
+            // Calculate green reference band
+            const { refMin, refMax, labelText } = parseRefRange(refRaw, plotValues.filter(v => v !== null));
+            if (refMin !== null && refMax !== null && labelText) {
+                annotations.refBand = {
+                    type: 'box', yMin: refMin, yMax: refMax,
+                    backgroundColor: 'rgba(40, 167, 69, 0.08)', borderColor: 'rgba(40, 167, 69, 0.4)', borderWidth: 1,
+                    label: { display: true, content: labelText, position: 'start', color: '#28a745', font: { size: 11 } }
+                };
+            }
         }
 
-        // FIX: Remove highlight BEFORE updating chart
-        document.querySelectorAll('#trendTableBody tr').forEach(r => r.classList.remove('selected-highlight'));
-
+    
+            // 4. DRAW THE CHART
+        trendChart.options.scales.x.display = true;
+        trendChart.options.scales.y.display = true;
         trendChart.data.labels = labels;
         trendChart.data.datasets = [{
             label: clickedName,
-            data: values,
+            data: plotValues,
             borderColor: '#0056b3',
             backgroundColor: 'rgba(0, 86, 179, 0.1)',
             borderWidth: 3,
@@ -168,7 +263,8 @@ document.addEventListener('DOMContentLoaded', function () {
             fill: true,
             pointRadius: 6,
             pointBackgroundColor: '#0056b3',
-            pointHoverRadius: 8
+            pointHoverRadius: 8,
+            spanGaps: true // Connects the line even if a historical point is missing
         }];
 
         trendChart.options.plugins.annotation = { annotations };
@@ -182,8 +278,12 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!row) return;
             const cells = row.querySelectorAll('td');
             if (cells.length < 1) return;
-            const name = cells[0].innerText.trim();
+            
+            // FIX: Clear all highlights immediately before applying the new one
+            document.querySelectorAll('#trendTableBody tr').forEach(r => r.classList.remove('selected-highlight'));
             row.classList.add('selected-highlight');
+            
+            const name = cells[0].innerText.trim();
             updateGraphForBiomarker(name);
         });
     }
@@ -192,8 +292,12 @@ document.addEventListener('DOMContentLoaded', function () {
     setTimeout(() => {
         const firstRow = tableBody?.querySelector('tr');
         if (firstRow && firstRow.querySelectorAll('td').length >= 2) {
-            const name = firstRow.querySelectorAll('td')[0].innerText.trim();
+            
+            // FIX: Clear before highlighting
+            document.querySelectorAll('#trendTableBody tr').forEach(r => r.classList.remove('selected-highlight'));
             firstRow.classList.add('selected-highlight');
+            
+            const name = firstRow.querySelectorAll('td')[0].innerText.trim();
             updateGraphForBiomarker(name);
         }
     }, 300);

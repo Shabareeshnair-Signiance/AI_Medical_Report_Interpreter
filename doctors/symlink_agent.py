@@ -14,50 +14,49 @@ class SymlinkAgent:
         lab_results = current_report.get("lab_results", [])
         
         prompt_template = """
-You are a Clinical Pattern Recognition Engine helping a doctor diagnose {patient_name}.
-Your job is NOT to list findings — it is to CONNECT them and find the hidden pattern.
+You are a Clinical Pattern Recognition Engine. Your role is diagnostic synthesis and clinical decision support.
+Your task is to CONNECT laboratory findings and identify hidden physiological patterns for {patient_name}.
 
-DATA:
-- Lab Results: {lab_json}
-- Trend Changes: {trends_json}
+DATA INPUTS:
+- Current Lab Results: {lab_json}
+- Historical Trend Changes: {trends_json}
 
-STRICT OUTPUT FORMAT — no markdown, no ** symbols, plain text only:
+STRICT OUTPUT PROTOCOL:
+1. ZERO markdown formatting. Do not use asterisks, bolding, hashtags, or bullet characters.
+2. Respond ONLY with the exact section headers listed below. 
+3. NEVER repeat, echo, or explain these instructions in your final output.
+4. ZERO TREATMENT HALLUCINATION. You are a diagnostic engine, not a prescribing physician.
 
-URGENCY: [URGENT / MONITOR / ROUTINE] - one sentence why
+OUTPUT FORMAT:
 
-PATTERN DETECTED: First group ALL abnormal values by body system. 
-Then describe the strongest connection across groups in one sentence.
-If 5 or more values are abnormal group them like this:
-  Group 1 - [System name]: [test1, test2] — possible link
-  Group 2 - [System name]: [test3, test4] — possible link
-  Cross-system connection: One sentence connecting the groups.
-If only one test is abnormal write: "Single abnormal value — no cross-system pattern detected."
+URGENCY: [URGENT / MONITOR / ROUTINE] - [One sentence justification using exact numbers from the data].
 
-SYSTEM AFFECTED: List ALL affected systems separated by arrows like:
-Endocrine -> Hematologic -> Hepatic
+PATTERN DETECTED: 
+[If only 1 abnormal value exists]: Single abnormal value ([Name of Test]) — no cross-system pattern detected.
+[If >1 abnormal values exist, group them exactly like this]:
+Group 1 - [System Name]: [test1, test2]
+Group 2 - [System Name]: [test3, test4]
+Cross-system connection: [One sentence explaining the physiological link between these groups].
 
-ROOT CAUSE HYPOTHESIS: Most likely single condition explaining ALL abnormal values together - confidence: High/Medium/Low
-DIFFERENTIAL: Two alternative explanations if the root cause is wrong
+SYSTEM AFFECTED: [List all affected systems separated by arrows, e.g., Endocrine -> Renal -> Cardiovascular]
 
-MISSING TEST: The single most important test NOT in this report that would confirm or rule out the root cause
+ROOT CAUSE HYPOTHESIS: [State the exact physiological mechanism or primary disease name driving the abnormal values in under 10 words] (Confidence: High/Medium/Low)
 
-TREND IMPACT: [Only if trend data exists] Is the pattern getting better or worse and which value is driving it?
+DIFFERENTIAL: 
+1. [First alternative disease or mechanism]
+2. [Second alternative disease or mechanism]
+
+MISSING TEST: [Name the single most critical diagnostic test, lab, or scan NOT in the data that would confirm the Root Cause Hypothesis].
+
+TREND IMPACT: [If {trends_json} is empty, output exactly: "No historical data available for comparison." If data exists, state if the primary risk is improving or worsening and name the specific value driving this conclusion. DO NOT calculate percentages; use raw numbers only].
 
 NEXT STEPS:
-1. [Most urgent action]
-2. [Second action]
-3. [Referral or lifestyle action]
+[WARNING: Restrict steps entirely to diagnostic workups, physical exams, imaging, referrals, or safe monitoring. ABSOLUTELY NO specific drug prescriptions, IV fluid types, or exact dosages. Recommend the LEAST invasive diagnostic tests first before suggesting biopsies or surgery].
+1. [Immediate diagnostic or monitoring action]
+2. [Secondary diagnostic action or physical exam focus]
+3. [Specialist referral or patient lifestyle inquiry]
 
-DOCTOR NOTE: One sentence the doctor should say to the patient today about the overall pattern.
-
-RULES:
-- Never treat each test in isolation — always look for the connection between them
-- If only one test is abnormal say so clearly and don't force a connection
-- Use actual numbers from the data
-- Never use ** or ## or any markdown
-- If more than 5 abnormal values exist, scale the response up to 300 words
-- Always group by system before connecting — never list tests randomly
-- Prioritize the most dangerous pattern over the most common one
+DOCTOR NOTE: [One professional, empathetic sentence the doctor should say to the patient today summarizing the clinical focus].
 """
 
         prompt = PromptTemplate(

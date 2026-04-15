@@ -320,12 +320,12 @@ tr:hover { background-color: #f0f7ff; }
 .chart-wrapper { background: #ffffff; padding: 10px; border-radius: 8px; border: 1px solid #f0f0f0; height: 320px; }
 
 /* --- TREND ROW STATUS COLOURS --- */
-.row-critical { background-color: rgba(220, 53, 69, 0.08) !important; border-left: 5px solid #dc3545; }
-.row-low { background-color: rgba(253, 126, 20, 0.08) !important; border-left: 5px solid #fd7e14; }
-.row-normal { background-color: rgba(40, 167, 69, 0.06) !important; border-left: 5px solid #28a745; }
-.row-high { background-color: rgba(220, 53, 69, 0.05) !important; border-left: 4px solid #dc3545; }
+.row-critical { background-color: rgba(220, 53, 69, 0.08) !important; border-left: 5px solid #dc3545; } /* Red for High */
+.row-low { background-color: rgba(253, 126, 20, 0.08) !important; border-left: 5px solid #fd7e14; } /* Orange for Low */
+.row-normal { background-color: rgba(40, 167, 69, 0.06) !important; border-left: 5px solid #28a745; } /* Green for Normal */
+
 .trend-row:hover { cursor: pointer; background-color: #f0f4ff !important; }
-.selected-highlight { background-color: #dce8ff !important; border-left: 5px solid #0056b3 !important; }
+.selected-highlight { background-color: #dce8ff !important; border-left: 5px solid #0056b3 !important; }ed-highlight { background-color: #dce8ff !important; border-left: 5px solid #0056b3 !important; }
 
 /* --- HISTORY TABLE --- */
 .history-main-row { cursor: pointer; transition: background 0.2s; }

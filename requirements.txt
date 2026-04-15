@@ -6,12 +6,12 @@ openai
 faiss-cpu
 sentence-transformers
 pdfplumber
-opencv-python
+opencv-python-headless
 pdf2image
 python-dotenv
 numpy
 sentencepiece
 thefuzz
 python-dateutil
-pymupdf
-pil
+PyMuPDF
+Pillow

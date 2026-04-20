@@ -8,6 +8,8 @@ from processing.report_parser import parse_medical_report
 from processing.llm_extractor import llm_extract_medical_data
 from processing.pdf_reader import read_pdf
 
+from ocr_service.ocr_llm_extractor import run_ocr_pipeline
+
 from logger_config import logger
 
 
@@ -102,23 +104,81 @@ def run_medical_pipeline(file_path: str):
     except Exception as e:
         logger.error(f"Pipeline error: {str(e)}")
         return {"error": str(e)}
+    
+
+# Vision AI Pipeline for scanned reports
+def run_vision_medical_pipeline(file_path: str):
+    """
+    Parallel pipeline specifically for handling Scanned Reports/Images.
+    Uses the robust Vision AI extraction engine instead of the legacy parser.
+    """
+
+    try:
+        logger.info("Starting Vision AI Medical Pipeline (Scanned Reports)")
+
+        # 1. Extracting data using our new, highly accurate Vision engine
+        extracted_data = run_ocr_pipeline(file_path)
+        lab_results = extracted_data.get("lab_results", [])
+
+        if not lab_results:
+            logger.warning("Vision AI could not extract any valid lab results.")
+            return {"error": "Extraction failed or returned empty results."}
+        
+        # 2. Building the Langgraph workflow
+        graph = build_medical_graph()
+
+        if graph is None:
+            return {"error": "Graph not built"}
+        
+        # 3. Initialize graph state
+        state = {
+            "lab_results": lab_results
+        }
+
+        # Add metadata expected by your downstream agents
+        state["source"] = "scanned_image_vision_ai"
+        state["confidence"] = "high"
+
+        # 4. Execute the graph
+        logger.info("Invoking Langgraph with Vision AI extracted data...")
+        result = graph.invoke(state)
+
+        logger.info("Vision AI Pipeline execution completed")
+
+        return {
+            "analysis": result.get("analysis", ""),
+            "explanation": result.get("explanation", ""),
+            "guidance": result.get("guidance", "")
+        }
+    
+    except Exception as e:
+        logger.error(f"Vision AI Pipeline error: {str(e)}")
+        return {"error": {str(e)}}
+
 
 # testing the entire agent with sample report
 # if __name__ == "__main__":
+    
+#     # Testing the NEW Vision pipeline with a scanned report
+#     #file_path = "sample_data/Scanned_report.pdf"
+#     file_path = "sample_data/Medical_report.pdf"
+    
+#     print(f"\n{'='*60}")
+#     print(f"LANGGRAPH VISION AI TEST: {file_path}")
+#     print(f"{'='*60}\n")
 
-#     file_path = "sample_data/sample_blood_report.pdf"
+#     result = run_vision_medical_pipeline(file_path)
 
-#     result = run_medical_pipeline(file_path)
+#     if "error" in result:
+#         print(f"\n[!] Pipeline Error: {result['error']}")
+#     else:
+#         print("\n=== ANALYSIS (From Report Agent) ===\n")
+#         print(result.get("analysis", "No analysis generated."))
 
-#     print("\n--- Final Output ---\n")
+#         print("\n=== EXPLANATION (From Explanation Agent) ===\n")
+#         print(result.get("explanation", "No explanation generated."))
 
-#     print("\n=== ANALYSIS ===\n")
-#     print(result.get("analysis", ""))
+#         print("\n=== GUIDANCE (From Guidance Agent) ===\n")
+#         print(result.get("guidance", "No guidance generated."))
 
-#     print("\n=== EXPLANATION ===\n")
-#     print(result.get("explanation", ""))
-
-#     print("\n=== GUIDANCE ===\n")
-#     print(result.get("guidance", ""))
-
-#     print("\n" + "-" * 50)
+#     print("\n" + "=" * 60)

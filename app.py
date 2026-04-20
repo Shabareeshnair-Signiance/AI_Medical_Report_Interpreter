@@ -13,7 +13,7 @@ from processing.pdf_reader import read_pdf
 from processing.llm_extractor import llm_extract_medical_data
 from processing.report_parser import parse_medical_report
 from graph.agent_graph import build_medical_graph
-from storage.database import init_database, save_report, generate_file_hash_from_bytes
+from storage.database import init_database, save_report, generate_file_hash_from_bytes, check_existing_report
 
 from graph.doctor_graph import app as doctor_app
 from storage.medical_history_db import get_history_for_patient, init_history_database, calculate_file_hash
@@ -114,8 +114,6 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 
-# @app.before_first_request
-# def setup():
 init_database()
 
 
@@ -184,10 +182,26 @@ def index():
             # PROCESSING
             report_text = read_pdf(file_path)
 
+
             # OCR fallback (only if PDF text is weak)
             if not report_text or len(report_text.strip()) < 50:
-                logger.warning("PDF parsing weak -> switching to OCR pipeline")
+                logger.info("Scanned Document Detected -> switching to Vision AI pipeline")
 
+                # Milisecond Cache fetch for Vision AI
+                vision_cache = check_existing_report(file_hash)
+
+                if vision_cache:
+                    logger.info("Vision AI Cache Hit! Loading instantly from database...")
+                    return render_template(
+                        "main.html",
+                        medical_data = vision_cache["medical_data"],
+                        analysis = vision_cache["analysis"],
+                        explanation=parse_explanation(vision_cache["explanation"]),
+                        guidance=parse_guidance(vision_cache["guidance"]),
+                        validation=validation_result
+                    )
+
+                # If not cached, run the expensive Vision AI
                 ocr_result = run_ocr_pipeline(file_path)
 
                 # Directly use OCR structured output
@@ -196,6 +210,10 @@ def index():
                 state = {
                     "lab_results": medical_data.get("lab_results", [])
                 }
+
+                # Vision AI metadata addition
+                state["source"] = "scanned_image_vision_ai"
+                state["confidence"] = "high"
 
                 result = graph.invoke(state)
 

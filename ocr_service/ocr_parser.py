@@ -1,193 +1,160 @@
 import re
 from logger_config import logger
 
-# Units (expanded for OCR noise cases)
+# EXPANDED UNITS
+# Added many standard hematology, biochemistry, and hormone units
 UNITS = [
-    "mg/dL","g/dL","mmol/L","IU/L","U/L",
-    "cells/mcL","/mcL","/µL","/uL","%","ng/mL",
-    "pg/mL","mEq/L","µg/dL","/cumm", "µIU/mL", "uIU/mL",
-    "mgdl","gdl"  # OCR mistakes
+    "mg/dL", "g/dL", "mmol/L", "IU/L", "U/L", "cells/mcL", "/mcL", "/µL", "/uL", 
+    "%", "ng/mL", "pg/mL", "mEq/L", "µg/dL", "/cumm", "µIU/mL", "uIU/mL",
+    "fL", "pg", "g/L", "10^6/uL", "10^3/uL", "10*3/uL", "umol/L", "nmol/L", 
+    "mOsm/kg", "mIU/mL", "ng/dL", "/hpf", "/lpf",
+    "mgdl", "gdl"  # Common OCR/PDF extraction spacing mistakes
 ]
 
-# Strict filtering (ONLY medical test lines allowed)
+# STRICT KEYWORDS
 NON_TEST_KEYWORDS = [
-    "age","gender","lab no","registration","reg no",
-    "patient","doctor","hospital","report","date",
-    "collection","visit","id","number","name",
-    "address","phone","final","sample","bio","lab"
+    "age", "gender", "lab no", "registration", "reg no",
+    "patient", "doctor", "hospital", "report", "date",
+    "collection", "visit", "id", "number", "name",
+    "address", "phone", "final", "sample", "bio", "lab",
+    "biochemistry", "hematology", "pathology", "test name",
+    "result", "reference", "unit", "value"
 ]
 
-
-# Clean OCR noise
 def clean_line(line):
     line = re.sub(r"\.{2,}", " ", line)
     line = re.sub(r"\s+", " ", line)
     return line.strip()
 
-
-# Strict validation (important for OCR)
-def is_valid_test(line):
-    line_lower = line.lower()
-
-    # remove non-medical lines
-    if any(word in line_lower for word in NON_TEST_KEYWORDS):
-        return False
-
-    # must contain number
-    if not re.search(r"\d", line):
-        return False
-
-    # must contain alphabet (test name)
-    if not re.search(r"[a-zA-Z]", line):
-        return False
-
-    return True
-
-
-# Extract numbers
-def extract_numbers(text):
-    nums = re.findall(r"\d+(?:,\d{3})*(?:\.\d+)?", text)
-    return [float(n.replace(",", "")) for n in nums]
-
-
-# Detect unit (robust for OCR mistakes)
 def detect_unit(text):
     text_lower = text.lower().replace(" ", "")
-
     for unit in UNITS:
+        # Check against cleaned text to avoid slash/space issues
         if unit.lower().replace("/", "") in text_lower:
             return unit.replace("mgdl", "mg/dL").replace("gdl", "g/dL")
-
     return ""
 
+def extract_reference_range(text):
+    """Attempts to find a range pattern like '10-20' or '<5.0' in the text chunk."""
+    range_match = re.search(r"(\d+\.?\d*\s*-\s*\d+\.?\d*|<[ ]*\d+\.?\d*|>[ ]*\d+\.?\d*)", text)
+    return range_match.group(1).strip() if range_match else ""
 
-# Extract test name smarter (OCR-safe)
-def extract_test_name(line):
-    # Remove numbers and units
-    cleaned = re.sub(r"\d+(?:\.\d+)?", "", line)
+def is_valid_test_name(name):
+    if len(name) < 3:
+        return False
+    if any(keyword in name.lower() for keyword in NON_TEST_KEYWORDS):
+        return False
+    # Must contain at least one letter
+    if not re.search(r"[a-zA-Z]", name):
+        return False
+    return True
 
-    # Remove common noise words
-    cleaned = re.sub(r"(range|result|value|test)", "", cleaned, flags=re.I)
-
-    # Keep only alphabets + spaces
-    cleaned = re.sub(r"[^a-zA-Z\s\(\)\-]", "", cleaned)
-
-    cleaned = cleaned.strip().title()
-
-    # Avoid very small/invalid names
-    if len(cleaned) < 3:
-        return None
-
-    return cleaned
-
-
-# Main OCR parser
+# SMARTER TEXT PARSER
 def parse_ocr_medical_report(report_text):
     try:
-        logger.info("Starting OCR parsing (SECTION-AWARE MODE)")
+        logger.info("Starting Native Text Parsing (Regex Fast Lane)")
 
         lines = [clean_line(l) for l in report_text.split("\n") if l.strip()]
         medical_data = []
 
-        in_table = False
-
+        # We use a sliding window approach. 
+        # We look at 3 lines at a time to catch data whether it's horizontal or vertical.
         i = 0
         while i < len(lines):
-
-            line = lines[i].lower()
-
-            # START parsing only after this
-            if "biochemistry" in line or "test name" in line:
-                in_table = True
-                i += 1
-                continue
-
-            # STOP parsing after comments
-            if any(word in line for word in ["comments", "clinical", "note", "high levels", "low levels"]):
+            line = lines[i]
+            
+            # Stop parsing if we hit the footer notes
+            if any(word in line.lower() for word in ["comments", "clinical", "note", "end of report"]):
                 break
 
-            if not in_table:
-                i += 1
-                continue
+            # Look for a number in the current line
+            num_match = re.search(r"(\d+\.?\d*)", line)
+            
+            if num_match:
+                # We found a potential value. Let's look around it (current line + next 2 lines)
+                window_text = " ".join(lines[max(0, i-1):min(len(lines), i+2)])
+                
+                unit = detect_unit(window_text)
+                ref_range = extract_reference_range(window_text)
+                
+                # If we have a number and a unit, we almost certainly have a medical result
+                if unit:
+                    value = num_match.group(1)
+                    
+                    # Try to extract the test name from the preceding line or the start of the current line
+                    test_name_candidate = ""
+                    if i > 0 and not re.search(r"\d", lines[i-1]):
+                        test_name_candidate = lines[i-1]
+                    else:
+                        # Strip the numbers, units, and ranges from the text to leave just the name
+                        clean_candidate = re.sub(r"(\d+\.?\d*|-|<|>)", "", line).strip()
+                        for u in UNITS:
+                            clean_candidate = re.sub(re.escape(u), "", clean_candidate, flags=re.IGNORECASE)
+                        test_name_candidate = clean_candidate
 
-            # -------- ACTUAL EXTRACTION --------
+                    test_name = re.sub(r"[^a-zA-Z\s\(\)\-]", "", test_name_candidate).strip().title()
 
-            nums = extract_numbers(lines[i])
-
-            if nums and len(nums) == 1:
-                value = nums[0]
-
-                unit = ""
-                for j in range(i+1, min(i+4, len(lines))):
-                    unit = detect_unit(lines[j])
-                    if unit:
-                        break
-
-                if not unit:
-                    i += 1
-                    continue
-
-                test_name = None
-                for k in range(j+1, min(j+4, len(lines))):
-                    candidate = lines[k]
-
-                    if any(word in candidate.lower() for word in NON_TEST_KEYWORDS):
-                        continue
-
-                    if len(candidate.split()) <= 6:
-                        test_name = candidate
-                        break
-
-                if not test_name:
-                    i += 1
-                    continue
-
-                test_name = re.sub(r"[^a-zA-Z\s]", "", test_name).title()
-
-                medical_data.append({
-                    "test": test_name,
-                    "value": f"{value} {unit}",
-                    "reference_range": "N/A",
-                    "status": "Unknown"
-                })
-
-                logger.info(f"Extracted {test_name}: {value} {unit}")
-
-                i = k
-                continue
+                    if is_valid_test_name(test_name):
+                        medical_data.append({
+                            "test": test_name,
+                            "value": f"{value}",
+                            "reference_range": ref_range if ref_range else "N/A",
+                            "status": "Unknown" # Status will be calculated downstream or left Unknown if regex
+                        })
+                        logger.info(f"Regex Extracted -> {test_name}: {value} {unit}")
+                        
+                        # Skip ahead to avoid double-counting the same cluster of lines
+                        i += 1 
 
             i += 1
 
-        logger.info("OCR parsing completed")
+        logger.info(f"Regex parsing completed. Found {len(medical_data)} results.")
+        
+        # If the regex found nothing (or too little), it returns an empty array,
+        # which safely triggers the LLM fallback in ocr_llm_extractor.py
+        if len(medical_data) < 2:
+            return {"lab_results": []}
 
         return {"lab_results": medical_data}
 
     except Exception as e:
-        logger.error(f"OCR Parsing error: {str(e)}")
-        return {}
-    
+        logger.error(f"Text Parsing error: {str(e)}")
+        return {"lab_results": []}
 
-# testing the ocr parser code
-if __name__ == "__main__":
-    from ocr_service.ocr_engine import extract_text
 
-    file_path = "sample_data/Medical_report.pdf"
+# -------- TESTING BLOCK --------
+# if __name__ == "__main__":
+#     from ocr_service.ocr_engine import extract_text
+#     import os
 
-    print("\n=== OCR + PARSER TEST ===\n")
+#     # Ensure you are pointing to a DIGITAL PDF to test this regex lane
+#     file_path = "sample_data/Medical_report.pdf"
 
-    # OCR
-    ocr_text = extract_text(file_path)
+#     print("\n=== FAST LANE (TEXT) PARSER TEST ===\n")
 
-    print("\n=== OCR TEXT (first 500 chars) ===\n")
-    print(ocr_text[:500])
+#     if not os.path.exists(file_path):
+#         print(f"Error: File not found at {file_path}")
+#     else:
+#         # Run through the router
+#         extracted_data = extract_text(file_path)
 
-    # Parsing
-    result = parse_ocr_medical_report(ocr_text)
-    print("\n=== Parsed Output ===\n")
+#         # Check if the router actually put it in the Fast Lane
+#         if extracted_data.get("mode") == "text":
+#             native_text = extracted_data.get("content", "")
+            
+#             print("=== NATIVE TEXT DETECTED ===\n")
+#             print(native_text[:300] + "...\n")
 
-    if result.get("lab_results"):
-        for item in result["lab_results"]:
-            print(item)
+#             # Parsing
+#             result = parse_ocr_medical_report(native_text)
+#             print("=== PARSED OUTPUT ===\n")
 
-    else:
-        print("No lab results ext")
+#             if result.get("lab_results"):
+#                 for item in result["lab_results"]:
+#                     print(item)
+#             else:
+#                 print("[!] No lab results extracted. Regex criteria not met (Will trigger LLM fallback in production).")
+                
+#         else:
+#             print(f"\n[!] Router sent this to {extracted_data.get('mode').upper()} mode.")
+#             print("This parser is strictly for native text. Use ocr_llm_extractor.py to test the Vision AI lane.")

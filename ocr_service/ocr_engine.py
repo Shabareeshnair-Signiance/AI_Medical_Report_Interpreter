@@ -1,169 +1,121 @@
-import easyocr
+import os
+import base64
+import io
 from pdf2image import convert_from_path
 from PIL import Image
-import numpy as np
-import cv2
-import os
 from logger_config import logger
 
-# Load once globally to avoid repeated heavy initialization
-reader = easyocr.Reader(['en'], gpu=False)
+try:
+    import fitz
+except ImportError:
+    fitz = None
+    logger.warning("PyMuPDF (fitz) not installed. 'Fast Lane' digital PDF extraction will fall back to Vision.")
 
 
-# Generate multiple preprocessing variants
-def generate_variants(image):
-    image = np.array(image)
+class PatientVisionEngine:
+    def __init__(self):
+        pass
 
-    if len(image.shape) == 3:
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    else:
-        gray = image
+    def pil_to_base64(self, image):
+        """Converts a PIL Image to a base64 string for the OpenAI Vision API."""
+        buffer = io.BytesIO()
 
-    variants = []
+        # converting to RGB to ensure JPEG compatibility (drops alpha channel if any)
+        image = image.convert('RGB')
 
-    # Variant 1: Original grayscale
-    variants.append(gray)
-
-    # Variant 2: Adaptive Threshold
-    th1 = cv2.adaptiveThreshold(
-        gray, 255,
-        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv2.THRESH_BINARY, 11, 2
-    )
-    variants.append(th1)
-
-    # Variant 3: Otsu Threshold
-    _, th2 = cv2.threshold(
-        gray, 0, 255,
-        cv2.THRESH_BINARY + cv2.THRESH_OTSU
-    )
-    variants.append(th2)
-
-    # Variant 4: Contrast Enhanced
-    eq = cv2.equalizeHist(gray)
-    variants.append(eq)
-
-    return variants
-
-
-# Score OCR output
-def score_ocr(result):
-    if not result:
-        return 0
-    total_conf = sum([conf for (_, _, conf) in result])
-    return total_conf / len(result)
-
-
-# Run OCR on multiple variants and select best
-def run_best_ocr(image):
-    variants = generate_variants(image)
-
-    all_results = []
-
-    for idx, var in enumerate(variants):
+        # quality 85 reduces API payload size while keeping text crystal clear
+        image.save(buffer, format='JPEG', qulaity = 85)
+        return base64.b64encode(buffer.getvalue()).decode('utf-8')
+    
+    def extract_digital_text(self, pdf_path):
+        """Attempts to extract native text from a digital PDF."""
+        if not fitz:
+            return None
         try:
-            result = reader.readtext(var, detail=1)
-            all_results.append(result)
+            doc = fitz.open(pdf_path)
+            text = ""
+            for page in doc:
+                text += page.get_text() + "\n"
+
+            # suppose PDF is a scan, text length will be near 0
+            # if its a digital it will easily be > 100 characters.
+            if len(text.strip()) > 100:
+                return text.strip()
+            return None
         except Exception as e:
-            logger.warning(f"OCR variant {idx+1} failed: {str(e)}")
-            continue
+            logger.error(f"PyMuPDF Extraction Error: {str(e)}")
+            return None
+        
+    def extract_document(self, file_path):
+        """
+        Master function: Routes to Fast Lane (Text) or Smart Lane (Vision).
+        Return a dictionary indicating the extraction mode and content.
+        """
+        ext = os.path.splitext(file_path)[1].lower()
 
-    if not all_results:
-        logger.warning("All OCR variants failed")
-        return []
+        try:
+            if ext == '.pdf':
+                # 1. trying fast Lane
+                digital_text = self.extract_digital_text(file_path)
+                if digital_text:
+                    logger.info(f"[{os.path.basename(file_path)}] Native text detected. Routing to fast Lane.")
+                    return {"mode": "text", "content": digital_text}
+                
+                # 2. Smart Lane (Vision Conversion)
+                logger.info(f"[{os.path.basename(file_path)}] Scanned PDF detected. Converting to Vision Base64...")
+                # DPI 200 is perfect for OpenAI Vision. high enough to read
+                pages = convert_from_path(file_path, dpi=200)
+                base64_images = []
 
-    # Select best result
-    best_result = max(all_results, key=score_ocr)
+                for i, page in enumerate(pages):
+                    b64 = self.pil_to_base64(page)
+                    base64_images.append(b64)
+                    logger.info(f"Page {i+1} converted for Vision AI.")
 
-    logger.info(f"Selected OCR variant score: {score_ocr(best_result):.2f}")
+                return {"mode": "vision", "images": base64_images}
+            
+            elif ext in ['.jpg', '.jpeg', '.png']:
+                # Direct Image to Smart Lane
+                logger.info(f"[{os.path.basename(file_path)}] Image file detected. Routing to Vision Base64..")
+                image = Image.open(file_path)
+                b64 = self.pil_to_base64(image)
+                return {"mode": "vision", "images": [b64]}
+            
+            else:
+                logger.error(f"Unsupported file format: {ext}")
+                return {"mode": "error", "message": f"Unsupported format: {ext}"}
+            
+        except Exception as e:
+            logger.error(f"Document processing failed: {str(e)}")
+            return {"mode": "error", "message": str(e)}
+        
+# Initializing the Engine globally
+patient_ocr_engine = PatientVisionEngine()
 
-    # Filter low-confidence text
-    clean_lines = [
-        text.strip()
-        for (_, text, conf) in best_result
-        if conf > 0.4 and len(text.strip()) > 2
-    ]
-
-    if not clean_lines:
-        logger.warning("OCR returned no valid text after filtering")
-
-    return clean_lines
-
-
-# Image OCR
-def extract_text_from_image(image_path):
-    try:
-        logger.info(f"Processing image: {image_path}")
-
-        image = Image.open(image_path).convert("RGB")
-
-        clean_lines = run_best_ocr(image)
-
-        text = "\n".join(clean_lines)
-
-        return text.strip()
-
-    except Exception as e:
-        logger.error(f"Image OCR failed: {str(e)}")
-        return ""
-
-
-# PDF OCR
-def extract_text_from_pdf(pdf_path):
-    try:
-        logger.info(f"Processing PDF: {pdf_path}")
-
-        # Requires Poppler installed and added to PATH
-        pages = convert_from_path(pdf_path, dpi=300)
-
-        full_text = ""
-
-        for i, page in enumerate(pages):
-            logger.info(f"Processing page {i+1}")
-
-            clean_lines = run_best_ocr(page)
-
-            if not clean_lines:
-                logger.warning(f"No text found on page {i+1}")
-
-            page_text = "\n".join(clean_lines)
-
-            full_text += f"\n--- page {i+1} ---\n{page_text}\n"
-
-        return full_text.strip()
-
-    except Exception as e:
-        logger.error(f"PDF OCR failed: {str(e)}")
-        return ""
-
-
-# Main function
+# Preserved original function name to prevent breaking downstream
 def extract_text(file_path):
-    ext = os.path.splitext(file_path)[1].lower()
+    return patient_ocr_engine.extract_document(file_path)
 
-    if ext in ['.jpg', '.jpeg', '.png']:
-        return extract_text_from_image(file_path)
-
-    elif ext == '.pdf':
-        return extract_text_from_pdf(file_path)
-
-    else:
-        logger.warning(f"Unsupported file format: {ext}")
-        return ""
-
-
-# Testing the OCR Engine
 if __name__ == "__main__":
-    test_file = "sample_data/Medical_report.pdf"
+    TEST_FILE = "sample_data/Medical_report.pdf"
 
-    print("\n==== OCR TEST START ====\n")
+    print(f"\n{'='*60}")
+    print(f"PATIENT VISION ENGINE ROUTER: TERMINAL TEST")
+    print(f"\n{'='*60}")
 
-    result = extract_text(test_file)
-
-    if result:
-        print("\n==== OCR OUTPUT (First 1000 chars) ====\n")
-        print(result[:1000])
+    if not os.path.exists(TEST_FILE):
+        print(f"Error: File not Found at {TEST_FILE}. Please check your sample_data directory.")
     else:
-        print("\n No text extracted")
+        result = extract_text(TEST_FILE)
 
-    print("\n==== OCR TEST END ====\n")
+        print(f"\n Processing Complete....")
+        print(f"[*] chosen mode: {result.get('mode').upper()}")
+
+        if result.get("mode") == "text":
+            print(f"[*] Text Length: {len(result.get('content'))} characters.")
+            print(f"[*] Preview: {result.get('content')[:200]}...")
+        elif result.get("mode") == "vision":
+            print(f"[*] Total Images Generated: {len(result.get('images'))}")
+            print(f"[*] Base64 String Preview: {result.get('images')[0][:50]}...")
+
+    print(f"\n{'='*60}")

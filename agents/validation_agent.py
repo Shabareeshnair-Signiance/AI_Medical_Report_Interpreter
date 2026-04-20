@@ -1,12 +1,13 @@
 import os
 import re
 import hashlib
+import json
 
 from logger_config import logger
-from storage.database import check_existing_report
+from storage.database import check_existing_report, get_validation_cache
 from processing.pdf_reader import read_pdf
 from ocr_service.ocr_engine import extract_text
-from processing.llm_validation_extractor import llm_extract_identity
+from processing.llm_validation_extractor import llm_extract_identity, vision_llm_extract_identity
 
 
 class ValidationAgent:
@@ -29,19 +30,33 @@ class ValidationAgent:
         # Step 1: Try normal PDF text
         text = read_pdf(file_path)
 
+        # Safe String Added
+        # if not isinstance(text, str):
+        #     text = ""
+
         # OCR fallback (only if text extraction fails)
         if not text or len(text.strip()) < 50:
-            logger.warning("PDF text extraction weak -> switching to OCR")
-            ocr_text = extract_text(file_path)
+            logger.warning("PDF text extraction weak -> switching to OCR Engine")
+            ocr_result = extract_text(file_path)
+
+            # --- GUARDRAIL: Safely handle new dictionary output ---
+            if isinstance(ocr_result, dict):
+                if ocr_result.get("mode") == "vision":
+                    # Flag this as a vision document so validate() knows to bypass text regex
+                    return "__VISION_DOCUMENT__"
+                else:
+                    ocr_text = ocr_result.get("content", "")
+            else:
+                ocr_text = ocr_result
 
             # Only replace if OCR gives better content
             if ocr_text and len(ocr_text.strip()) > len(text.strip()):
                 text = ocr_text
 
         # Step 2: If text is too small → use OCR
-        if not text or len(text.strip()) < 50:
-            logger.warning("Text PDF failed -> switching to OCR for validation")
-            text = extract_text(file_path)
+        # if not text or len(text.strip()) < 50:
+        #     logger.warning("Text PDF failed -> switching to OCR for validation")
+        #     text = extract_text(file_path)
 
         return text
 
@@ -163,10 +178,130 @@ class ValidationAgent:
         # READ TEXT
         text = read_pdf(file_path)
 
-        # OCR fallback for validation (DO NOT REMOVE EXISTING LINE)
+        # Safe string enforcer
+        if not isinstance(text, str):
+            text = ""
+
+        # Dictionary Safety Net
+        if isinstance(text, dict):
+            text = text.get("text", "") or ""
+
+        # # NEW CODE ADDED: ISOLATED CACHE BYPASS FOR SCANNED ONLY
+        # is_scanned = not text or len(text.strip()) < 50
+        
+        # if is_scanned:
+        #     if not file_hash:
+        #         file_hash = self.generate_file_hash(file_path)
+            
+        #     existing = check_existing_report(file_hash)
+        #     if existing:
+        #         val_cache = get_validation_cache(file_hash)
+        #         if val_cache:
+        #             result["extracted_data"] = val_cache.get("extracted_data", {})
+        #             result["identifier_used"] = val_cache.get("identifier_used")
+                
+        #         result["is_duplicate"] = True
+        #         result["file_hash"] = file_hash
+        #         result["existing_result"] = existing
+        #         logger.info("Scanned report early cache hit! Skipping slow OCR validation.")
+        #         return result
+
+        # NEW CODE ADDED: ISOLATED CACHE BYPASS FOR SCANNED ONLY
+        is_scanned = not text or len(text.strip()) < 50
+        
+        if is_scanned:
+            if not file_hash:
+                file_hash = self.generate_file_hash(file_path)
+            
+            existing = check_existing_report(file_hash)
+            if existing:
+                # --- FAST LOCAL IDENTITY CACHE ---
+                cache_file = os.path.join("data", "val_cache.json")
+                val_cache = {}
+                if os.path.exists(cache_file):
+                    try:
+                        with open(cache_file, "r") as f:
+                            val_cache = json.load(f).get(file_hash, {})
+                    except: pass
+                
+                # Check if we actually found the cached identity
+                if val_cache and val_cache.get("extracted_data"):
+                    result["extracted_data"] = val_cache.get("extracted_data", {})
+                    result["identifier_used"] = val_cache.get("identifier_used")
+                    result["is_duplicate"] = True
+                    result["file_hash"] = file_hash
+                    result["existing_result"] = existing
+                    logger.info("Scanned report early cache hit! Identity loaded from local cache.")
+                    return result
+                else:
+                    logger.info("Report cached, but identity missing. Falling through to extract identity once.")
+
+        # OCR fallback for validation
         if not text or len(text.strip()) < 50:
             logger.warning("Validation: weak PDF text -> using OCR fallback")
             text = self.get_text_with_fallback(file_path)
+
+        # -------- ADDITIVE VISION AI GUARDRAIL --------
+        if text == "__VISION_DOCUMENT__":
+            logger.info("Vision Document detected. Bypassing text regex for validation.")
+            
+            # Get the images
+            extraction_data = extract_text(file_path)
+            base64_images = extraction_data.get("images", [])
+            
+            # Use Vision AI to get identity
+            
+            vision_identity = vision_llm_extract_identity(base64_images)
+            
+            result["extracted_data"] = {
+                "user_name": vision_identity.get("name"),
+                "reg_no": vision_identity.get("identifier"),
+                "lab_no": None, "pid": None, "patient_id": None, "accession_no": None, "visit_no": None
+            }
+            
+            if not result["extracted_data"]["user_name"]:
+                result["errors"].append("User name not found in scanned report.")
+            if not result["extracted_data"]["reg_no"]:
+                result["errors"].append("No valid identifier found in scanned report.")
+                
+            if result["errors"]:
+                result["is_valid"] = False
+                return result
+                
+            result["identifier_used"] = f"Vision_Extracted_ID: {result['extracted_data']['reg_no']}"
+            
+            # NEW: Saving Identity to local cache for milliseconds retrieval
+            try:
+                import json
+                cache_file = os.path.join("data", "val_cache.json")
+                full_cache = {}
+                if os.path.exists(cache_file):
+                    with open(cache_file, "r") as f:
+                        full_cache = json.load(f)
+                
+                if not file_hash:
+                    file_hash = self.generate_file_hash(file_path)
+                    
+                full_cache[file_hash] = {
+                    "extracted_data": result["extracted_data"],
+                    "identifier_used": result["identifier_used"]
+                }
+                with open(cache_file, "w") as f:
+                    json.dump(full_cache, f)
+            except Exception as e:
+                pass
+
+            # Duplicate Check (Preserving existing logic)
+            if not file_hash:
+                file_hash = self.generate_file_hash(file_path)
+            result["file_hash"] = file_hash
+            existing = check_existing_report(file_hash)
+            
+            if existing:
+                result["is_duplicate"] = True
+                result["existing_result"] = existing
+                
+            return result
 
         # CHECK MEDICAL REPORT
         if not self.is_medical_report(text):

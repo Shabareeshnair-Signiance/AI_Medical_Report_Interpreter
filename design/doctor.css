@@ -432,3 +432,31 @@ tr:hover { background-color: #f0f7ff; }
 .chat-msg.bot ul li { margin-bottom: 3px; line-height: 1.5; }
 .chat-msg.bot p { margin: 0 0 6px 0; }
 .chat-msg.bot p:last-child { margin-bottom: 0; }
+
+/* Styling for the Clinical Detective Markdown Output */
+.markdown-body h3 {
+    font-size: 1.1rem;
+    color: #0056b3;
+    margin-top: 15px;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    font-weight: 800;
+    border-bottom: 1px solid #f0f0f0;
+    padding-bottom: 5px;
+}
+
+.markdown-body strong {
+    color: #dc3545; /* Makes the critical numbers pop in red */
+    font-weight: 700;
+}
+
+.markdown-body ul {
+    margin-top: 5px;
+    padding-left: 20px;
+}
+
+.markdown-body p {
+    margin-top: 0;
+    line-height: 1.6;
+    color: #2c3e50;
+}

@@ -22,41 +22,48 @@ DATA INPUTS:
 - Historical Trend Changes: {trends_json}
 
 STRICT OUTPUT PROTOCOL:
-1. ZERO markdown formatting. Do not use asterisks, bolding, hashtags, or bullet characters.
-2. Respond ONLY with the exact section headers listed below. 
-3. NEVER repeat, echo, or explain these instructions in your final output.
-4. ZERO TREATMENT HALLUCINATION. You are a diagnostic engine, not a prescribing physician.
+1. REACT UI FORMATTING: You MUST use Markdown. Place a Level 3 Header (###) before every major section title so the frontend can enlarge it.
+2. DATA HIGHLIGHTING: You MUST wrap every specific numerical lab value and test name in **bold** markdown (e.g., **TSH of 4.3**).
+3. Respond ONLY with the exact section headers listed below. 
+4. NEVER repeat, echo, or explain these instructions in your final output.
+5. ZERO TREATMENT HALLUCINATION. You are a diagnostic engine, not a prescribing physician.
 
 OUTPUT FORMAT:
 
-URGENCY: [URGENT / MONITOR / ROUTINE] - [One sentence justification using exact numbers from the data].
+### URGENCY
+[URGENT / MONITOR / ROUTINE] - [One sentence justification using exact numbers from the data].
 
-PATTERN DETECTED: 
-[If only 1 abnormal value exists]: Single abnormal value ([Name of Test]) — no cross-system pattern detected.
+### PATTERN DETECTED
+[If only 1 abnormal value exists]: Single abnormal value (**[Name of Test]**) — no cross-system pattern detected.
 [If >1 abnormal values exist, group them exactly like this]:
-Group 1 - [System Name]: [test1, test2]
-Group 2 - [System Name]: [test3, test4]
+Group 1 - [System Name]: [**test1**, **test2**]
+Group 2 - [System Name]: [**test3**, **test4**]
 Cross-system connection: [One sentence explaining the physiological link between these groups].
 
-SYSTEM AFFECTED: [List all affected systems separated by arrows, e.g., Endocrine -> Renal -> Cardiovascular]
+### SYSTEM AFFECTED
+[List all affected systems separated by arrows, e.g., Endocrine -> Renal -> Cardiovascular]
 
-ROOT CAUSE HYPOTHESIS: [State the exact physiological mechanism or primary disease name driving the abnormal values in under 10 words] (Confidence: High/Medium/Low)
+### ROOT CAUSE HYPOTHESIS
+[State the exact physiological mechanism or primary disease name driving the abnormal values in under 10 words] (Confidence: High/Medium/Low)
 
-DIFFERENTIAL: 
+### DIFFERENTIAL
 1. [First alternative disease or mechanism]
 2. [Second alternative disease or mechanism]
 
-MISSING TEST: [Name the single most critical diagnostic test, lab, or scan NOT in the data that would confirm the Root Cause Hypothesis].
+### MISSING TEST
+[Name the single most critical diagnostic test, lab, or scan NOT in the data that would confirm the Root Cause Hypothesis].
 
-TREND IMPACT: [If {trends_json} is empty, output exactly: "No historical data available for comparison." If data exists, state if the primary risk is improving or worsening and name the specific value driving this conclusion. DO NOT calculate percentages; use raw numbers only].
+### TREND IMPACT
+[If {trends_json} is empty, output exactly: "No historical data available for comparison." If data exists, state if the primary risk is improving or worsening and name the specific **value** driving this conclusion. DO NOT calculate percentages; use raw numbers only].
 
-NEXT STEPS:
+### NEXT STEPS
 [WARNING: Restrict steps entirely to diagnostic workups, physical exams, imaging, referrals, or safe monitoring. ABSOLUTELY NO specific drug prescriptions, IV fluid types, or exact dosages. Recommend the LEAST invasive diagnostic tests first before suggesting biopsies or surgery].
 1. [Immediate diagnostic or monitoring action]
 2. [Secondary diagnostic action or physical exam focus]
-3. [Specialist referral or patient lifestyle inquiry]
+3. [Specialist referral or patient lifestyle inquiry. Briefly cite the standard clinical guideline driving this suggestion, e.g., 'Per ADA guidelines...']
 
-DOCTOR NOTE: [One professional, empathetic sentence the doctor should say to the patient today summarizing the clinical focus].
+### DOCTOR NOTE
+[One professional, empathetic sentence the doctor should say to the patient today summarizing the clinical focus].
 """
 
         prompt = PromptTemplate(

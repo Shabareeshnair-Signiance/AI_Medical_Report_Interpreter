@@ -611,24 +611,33 @@ def doctor_chat():
         patient_context = data.get("context", "")
 
         if not user_message:
-            return jsonify({"reply": "Please ask a question."})
+            return jsonify({"reply": "Please ask a question.", "next_chips": []})
         
         # building system prompt with patient context injected
-        system_prompt = f"""You are a Clinical Assistant helping a doctor review a patient report.
+        system_prompt = f"""You are an advanced Clinical Assistant helping a doctor.
         
-        Current Patient Context:
-        {patient_context}
+Current Patient Context:
+{patient_context}
 
-        Your Role:
-        - Answer questions about this specific patient's results
-        - Explain what abnormal values mean clinically
-        - Suggest follow-up tests or actions based on the data
-        - Be concise, professional and use medical terminology
-        - Never make a final diagnosis - always recommend doctor judgement
-        - If asked something outside this report, say you only have access to the current report data
+Your Role & Clinical Constraints:
+- Answer questions, explain abnormal values, and suggest follow-up tests.
+- THE DOER: If the doctor asks you to draft paperwork (e.g., SOAP note, referral letter, patient email), WRITE IT professionally and completely based on the lab data. 
+- NEVER make a final diagnosis; always defer to doctor judgement.
+- Keep conversational responses under 150 words. Drafted paperwork can be as long as necessary.
 
-        Keep responses under 150 words unless the doctor ask for detail.
-        """
+STRICT OUTPUT FORMAT:
+You MUST return your entire response as a valid JSON object. Do not output anything outside the JSON.
+The JSON must have EXACTLY two keys: "reply" and "next_chips".
+
+1. "reply": Your response formatted in Markdown. You MUST wrap every specific test name and numerical value in **bold** markdown.
+2. "next_chips": An array of 2 to 3 short string suggestions for the doctor's next click. At least one MUST be an Action/Paperwork chip starting with an emoji (e.g., "📝 Draft SOAP Note", "✉️ Draft Patient Email").
+
+Example JSON Output:
+{{
+    "reply": "The patient's **Fasting Glucose** is elevated at **124 mg/dL**...",
+    "next_chips": ["Draft Pre-Diabetes Patient Note", "What is the Cholesterol?"]
+}}
+"""
 
         from llm.llm_provider import get_llm
         from langchain_core.messages import HumanMessage, SystemMessage
@@ -640,13 +649,34 @@ def doctor_chat():
         ]
 
         response = llm.invoke(messages)
-        reply = response.content if hasattr(response, 'content') else str (response)
+        raw_content = response.content if hasattr(response, 'content') else str (response)
 
-        return jsonify({"reply": reply})
+        # return jsonify({"reply": reply})
+        clean_json_str = re.sub(r"```json\n?|```", "", raw_content).strip()
+
+        # parsing the string into python dictionary and send it to the frontend
+        try:
+            ai_output = json.loads(clean_json_str)
+            # this directly return {"reply": "...", "next_chips": [...]}
+            return jsonify(ai_output), 200
+        except json.JSONDecodeError:
+            # Defensive fallback
+            logger.warning("LLM Failed to output valid JSON in chatbot route")
+            return jsonify({
+                "reply": raw_content,
+                "next_chips": ["Retry Request"]
+            }), 200
     
     except Exception as e:
         logger.error(f"Doctor Chat Error: {str(e)}")
-        return jsonify({"reply": "Sorry, I could not process your question. Please try again."})
+        return jsonify({
+            "reply": "Sorry, I could not process your question. Please try again.",
+            "next_chips": []
+        }), 500
+
+    # except Exception as e:
+    #     logger.error(f"Doctor Chat Error: {str(e)}")
+    #     return jsonify({"reply": "Sorry, I could not process your question. Please try again."})
 
 
 if __name__ == "__main__":

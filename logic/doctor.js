@@ -512,6 +512,7 @@ function toggleChatbot() {
     }
 }
 
+// clearChat will now properly restores default chips
 function clearChat() {
     const messages = document.getElementById('chatbot-messages');
     if (!messages) return;
@@ -519,21 +520,36 @@ function clearChat() {
         <div class="chat-msg bot">
             Hello Doctor 👋 I have access to the current patient report. Ask me anything about the findings, test results or next steps.
         </div>`;
+        
     const chips = document.getElementById('chat-chips-bar');
-    if (chips) chips.style.display = 'flex';
+    if (chips) {
+        // Restore the original default chips on clear
+        const defaultChips = [
+            '📋 Summarize findings',
+            '🚨 What is abnormal?',
+            '🔬 Suggest next tests',
+            '💊 Recommend next steps'
+        ];
+        chips.innerHTML = defaultChips.map(c =>
+            `<button class="chat-chip" onclick="sendChatMessage('${c.replace(/'/g, "\\'")}')">${c}</button>`
+        ).join('');
+        chips.style.display = 'flex';
+    }
 }
 
+
+// sendChatMessage now extracts and renders dynamic next chips
 async function sendChatMessage(prefillText) {
     const input = document.getElementById('chatbot-input');
     const messages = document.getElementById('chatbot-messages');
     const sendBtn = document.getElementById('chatbot-send');
+    const chips = document.getElementById('chat-chips-bar'); // Get the chips bar container
     if (!input || !messages) return;
 
     const userText = prefillText || input.value.trim();
     if (!userText) return;
 
-    // Hide chips after first message
-    const chips = document.getElementById('chat-chips-bar');
+    // Hide chips immediately when the user sends a message
     if (chips) chips.style.display = 'none';
 
     // Append user bubble
@@ -560,11 +576,15 @@ async function sendChatMessage(prefillText) {
         });
 
         const data = await response.json();
+        
+        // Extract the reply AND the dynamic chips from the backend
         const reply = data?.reply || 'Sorry, I could not generate a response.';
-        const msgId = 'msg-' + Date.now();
+        const nextChipsArray = data?.next_chips || []; 
 
+        const msgId = 'msg-' + Date.now();
         document.getElementById(typingId)?.remove();
 
+        // Render Bot Reply
         messages.innerHTML += `
             <div class="chat-msg-wrapper">
                 <div class="chat-msg bot" id="${msgId}">${renderMarkdown(reply)}</div>
@@ -573,9 +593,24 @@ async function sendChatMessage(prefillText) {
                 </button>
             </div>`;
 
+        // Render the new dynamic Action Chips
+        if (chips && nextChipsArray.length > 0) {
+            chips.innerHTML = nextChipsArray.map(c =>
+                // using replace to escape any quotes inside the chip text
+                `<button class="chat-chip" onclick="sendChatMessage('${c.replace(/'/g, "\\'")}')">${c}</button>`
+            ).join('');
+            chips.style.display = 'flex'; // Un-hide the bar to show the new chips
+        }
+
     } catch (err) {
         document.getElementById(typingId)?.remove();
         messages.innerHTML += `<div class="chat-msg bot" style="color:#dc3545;">⚠️ Error connecting to AI. Please try again.</div>`;
+        
+        // Fallback chip if API fails
+        if (chips) {
+            chips.innerHTML = `<button class="chat-chip" onclick="sendChatMessage('Retry the previous request')">🔄 Retry</button>`;
+            chips.style.display = 'flex';
+        }
     }
 
     sendBtn.disabled = false;

@@ -217,6 +217,10 @@ data/*.db
 # Uploaded files
 data/uploads/
 
+# Medical reports aren't saved
+data/medical_history.db
+data/medical_reports.db
+
 # But keep the data folder structure
 !data/.gitkeep
 !data/uploads/.gitkeep
